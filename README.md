@@ -9,8 +9,6 @@ Firmware **v1.00** · Autor: Cabaj Tomáš · 2026
 *Další jazyky: [English](README.en.md) · [Deutsch](README.de.md)*
 *Podrobný seznam obrazovek a funkcí: [FEATURES.md](FEATURES.md)*
 
-*Pracujete na projektu s AI? Začněte u [CLAUDE.md](CLAUDE.md) — rozcestník k dokumentům `AI-*.md`, které popisují stavbu projektu, práci s diakritikou i generování náhledů.*
-
 ---
 
 ## Náhledy obrazovek
@@ -431,11 +429,6 @@ SolaAssistant-TMK/
 ├── check_glyphs.py         kontrola, zda má každý znak glyf ve fontu
 ├── check_braces.py         kontrola struktury skeče
 ├── FEATURES.md             seznam obrazovek a funkcí (CZ/EN)
-├── CLAUDE.md               pokyny pro AI, rozcestník
-├── AI-CONTEXT.md           kontext projektu pro AI
-├── AI-FONTS.md             diakritika, písma, formátování
-├── AI-SCREENSHOTS.md       generování náhledů 1:1
-├── AI-WORKFLOW.md          postup změn a ověření
 ├── LICENSE                 MIT
 ├── LICENSE_DEJAVU.txt      licence použitého písma
 ├── README.md               tento soubor

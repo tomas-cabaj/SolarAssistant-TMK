@@ -10,8 +10,6 @@ Firmware **v1.00** · Author: Cabaj Tomáš · 2026
 *Other languages: [Čeština](README.md) · [Deutsch](README.de.md)*
 *Detailed list of screens and features: [FEATURES.md](FEATURES.md)*
 
-*Working on this with an AI? Start at [CLAUDE.md](CLAUDE.md) — an entry point to the `AI-*.md` documents covering how the project is built, how diacritics are handled and how the previews are generated.*
-
 ---
 
 ## Screenshots
@@ -434,11 +432,6 @@ SolaAssistant-TMK/
 ├── check_glyphs.py         checks that every character has a glyph
 ├── check_braces.py         checks the structure of the sketch
 ├── FEATURES.md             list of screens and features (CZ/EN)
-├── CLAUDE.md               instructions for AI, entry point
-├── AI-CONTEXT.md           project context for an AI
-├── AI-FONTS.md             diacritics, fonts, formatting
-├── AI-SCREENSHOTS.md       generating the 1:1 previews
-├── AI-WORKFLOW.md          how to change things and verify them
 ├── LICENSE                 MIT
 ├── LICENSE_DEJAVU.txt      licence of the bundled typeface
 ├── README.md               Czech version

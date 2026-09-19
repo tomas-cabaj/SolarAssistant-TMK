@@ -10,8 +10,6 @@ Firmware **v1.00** · Autor: Cabaj Tomáš · 2026
 *Weitere Sprachen: [Čeština](README.md) · [English](README.en.md)*
 *Ausführliche Liste der Bildschirme und Funktionen: [FEATURES.md](FEATURES.md)*
 
-*Arbeiten Sie mit einer KI daran? Beginnen Sie bei [CLAUDE.md](CLAUDE.md) — ein Einstiegspunkt zu den `AI-*.md`-Dokumenten über den Aufbau des Projekts, die Diakritik und das Erzeugen der Vorschauen.*
-
 ---
 
 ## Bildschirmfotos
@@ -442,11 +440,6 @@ SolaAssistant-TMK/
 ├── check_glyphs.py         prüft, ob jedes Zeichen eine Glyphe hat
 ├── check_braces.py         prüft die Struktur des Sketches
 ├── FEATURES.md             Liste der Bildschirme und Funktionen (CZ/EN)
-├── CLAUDE.md               Hinweise für KI, Einstiegspunkt
-├── AI-CONTEXT.md           Projektkontext für eine KI
-├── AI-FONTS.md             Diakritik, Schriften, Formatierung
-├── AI-SCREENSHOTS.md       Erzeugen der 1:1-Vorschauen
-├── AI-WORKFLOW.md          Änderungen und ihre Überprüfung
 ├── LICENSE                 MIT
 ├── LICENSE_DEJAVU.txt      Lizenz der mitgelieferten Schrift
 ├── README.md               tschechische Fassung
