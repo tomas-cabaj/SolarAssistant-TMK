@@ -133,10 +133,30 @@ enum {
   T_MAX_TODAY,
   T_ALERT_SOC,
   T_ALERT_TEMP,
+  T_S_ERRORS,
+  T_S_SET3,
+  T_ERR_FETCH,
+  T_ERR_API,
+  T_ERR_COUNTER,
+  T_NO_ERRORS,
+  T_CLEAR_ERRORS,
+  T_FAILURES,
+  T_MIN_MAX,
+  T_SOC_EVENING,
+  T_ALERT_SOC_LIMIT,
+  T_ALERT_TEMP_LIMIT,
+  T_ALERT_OFFLINE,
+  T_ERR_LED,
+  T_RED,
+  T_BLUE,
+  T_ORANGE,
+  T_PURPLE,
   T_TO_SLEEP,
   T_S_RUNTIME,
+  T_S_TEMP,
   T_S_HISTORY,
   T_S_SAVINGS,
+  T_S_FORECAST,
   T_S_ABOUT,
   T_STATE,
   T_SUNRISE,
@@ -149,6 +169,10 @@ enum {
   T_MONTH,
   T_YEAR,
   T_SAVED,
+  T_PLAN,
+  T_ACTUAL,
+  T_YEAR_PLAN,
+  T_OUT_TEMP,
   T_TODAY,
   T_PRICE,
   T_CURRENCY,
@@ -304,10 +328,30 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "Maximum dnes", "Maximum today", "Maksimum dziś", "Maximum heute" },   // T_MAX_TODAY
   { "NÍZKÝ STAV BATERIE", "LOW BATTERY", "NISKI STAN BATERII", "BATTERIE SCHWACH" },   // T_ALERT_SOC
   { "VYSOKÁ TEPLOTA MĚNIČE", "INVERTER OVERHEATING", "WYSOKA TEMP. FALOWNIKA", "WR ÜBERHITZT" },   // T_ALERT_TEMP
+  { "CHYBY A VÝPADKY", "ERRORS & OUTAGES", "BŁĘDY I AWARIE", "FEHLER & AUSFÄLLE" },   // T_S_ERRORS
+  { "UPOZORNĚNÍ", "ALERTS", "ALERTY", "WARNUNGEN" },   // T_S_SET3
+  { "VÝPADEK SPOJENÍ", "CONNECTION OUTAGE", "AWARIA POŁĄCZENIA", "VERBINDUNGSAUSFALL" },   // T_ERR_FETCH
+  { "NEPLATNÁ DATA API", "INVALID API DATA", "BŁĘDNE DANE API", "UNGÜLTIGE API-DATEN" },   // T_ERR_API
+  { "RESET POČÍTADLA", "COUNTER RESET", "RESET LICZNIKA", "ZÄHLER-RESET" },   // T_ERR_COUNTER
+  { "Bez zaznamenaných chyb", "No recorded errors", "Brak zapisanych błędów", "Keine gespeicherten Fehler" },   // T_NO_ERRORS
+  { "SMAZAT SEZNAM CHYB", "CLEAR ERROR LIST", "WYCZYŚĆ LISTĘ BŁĘDÓW", "FEHLERLISTE LÖSCHEN" },   // T_CLEAR_ERRORS
+  { "selhání", "failures", "błędy", "Fehler" },   // T_FAILURES
+  { "min/max čas", "min/max time", "min/max czas", "Min/Max Zeit" },   // T_MIN_MAX
+  { "SOC večer", "SOC evening", "SOC wieczorem", "SOC am Abend" },   // T_SOC_EVENING
+  { "SOC pod", "SOC below", "SOC poniżej", "SOC unter" },   // T_ALERT_SOC_LIMIT
+  { "Teplota nad", "Temperature above", "Temperatura powyżej", "Temperatur über" },   // T_ALERT_TEMP_LIMIT
+  { "Výpadek po", "Outage after", "Awaria po", "Ausfall nach" },   // T_ALERT_OFFLINE
+  { "LED při chybě", "LED on error", "LED przy błędzie", "LED bei Fehler" },   // T_ERR_LED
+  { "červená", "red", "czerwona", "rot" },   // T_RED
+  { "modrá", "blue", "niebieska", "blau" },   // T_BLUE
+  { "oranžová", "orange", "pomarańczowa", "orange" },   // T_ORANGE
+  { "fialová", "purple", "fioletowa", "lila" },   // T_PURPLE
   { "do uspání", "to sleep", "do uśpienia", "bis Ruhe" },   // T_TO_SLEEP
   { "DOBĚH BATERIE", "RUNTIME", "CZAS PRACY", "LAUFZEIT" },   // T_S_RUNTIME
+  { "TEPLOTY", "TEMPERATURES", "TEMPERATURY", "TEMPERATUREN" },   // T_S_TEMP
   { "HISTORIE", "HISTORY", "HISTORIA", "VERLAUF" },   // T_S_HISTORY
   { "ÚSPORY", "SAVINGS", "OSZCZĘDNOŚCI", "ERSPARNIS" },   // T_S_SAVINGS
+  { "PREDIKCE ÚSPOR", "SAVINGS FORECAST", "PROGNOZA OSZCZĘDNOŚCI", "ERSPARNISPROGNOSE" },   // T_S_FORECAST
   { "O APLIKACI", "ABOUT", "O PROGRAMIE", "ÜBER" },   // T_S_ABOUT
   { "Stav", "State", "Stan", "Status" },   // T_STATE
   { "Východ", "Sunrise", "Wschód", "Aufgang" },   // T_SUNRISE
@@ -320,6 +364,10 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "Měsíc", "Month", "Miesiąc", "Monat" },   // T_MONTH
   { "Rok", "Year", "Rok", "Jahr" },   // T_YEAR
   { "Ušetřeno", "Saved", "Zaoszcz.", "Gespart" },   // T_SAVED
+  { "Plán", "Plan", "Plan", "Plan" },   // T_PLAN
+  { "Skutečnost", "Actual", "Rzeczywistość", "Tatsächlich" },   // T_ACTUAL
+  { "Roční plán", "Year plan", "Plan roczny", "Jahresplan" },   // T_YEAR_PLAN
+  { "Venkovní teplota", "Outside temperature", "Temperatura zewn.", "Außentemperatur" },   // T_OUT_TEMP
   { "Dnes", "Today", "Dziś", "Heute" },   // T_TODAY
   { "Cena kWh", "Price kWh", "Cena kWh", "Preis kWh" },   // T_PRICE
   { "Měna", "Currency", "Waluta", "Währung" },   // T_CURRENCY

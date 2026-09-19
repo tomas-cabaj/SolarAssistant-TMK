@@ -3,9 +3,9 @@
 Grafischer Wandmonitor für Photovoltaikanlagen auf Basis des
 **ESP32-3248S035R** (3,5" Touchdisplay). Er liest die Daten von
 [Solar Assistant](https://solar-assistant.io/) über dessen REST-API und stellt
-sie auf neun Hochformat-Bildschirmen dar.
+sie auf siebzehn Hochformat-Bildschirmen dar.
 
-Firmware **v1.00** · Autor: Cabaj Tomáš · 2026
+Firmware **v2.00** · Autor: Cabaj Tomáš · 2026
 
 *Weitere Sprachen: [Čeština](README.md) · [English](README.en.md)*
 *Ausführliche Liste der Bildschirme und Funktionen: [FEATURES.md](FEATURES.md)*
@@ -26,9 +26,9 @@ Firmware **v1.00** · Autor: Cabaj Tomáš · 2026
 
 | Verlauf | Ersparnis | Einstellungen |
 |---|---|---|
-| ![Verlauf](images/08-historie.png) | ![Ersparnis](images/09-uspory.png) | ![Einstellungen](images/11-nastaveni2.png) |
+| ![Verlauf](images/09-historie.png) | ![Ersparnis](images/10-uspory.png) | ![Einstellungen](images/13-nastaveni2.png) |
 
-**[Alle 13 Bildschirme auf einem Blatt](images/vsechny-obrazovky.png)**
+**[Alle 17 Bildschirme auf einem Blatt](images/vsechny-obrazovky.png)**
 
 ---
 
@@ -52,8 +52,8 @@ Firmware **v1.00** · Autor: Cabaj Tomáš · 2026
 
 ## Funktionen
 
-- **9 Bildschirme** – Übersicht, Batterie, Solar, Netz und Last, Wetter,
-  Wechselrichter, Tagesdiagramme und zwei Einstellungsseiten
+- **17 Bildschirme** – Übersicht, Batterie, Solar, Netz und Last, Wetter,
+  Wechselrichter, Tagesdiagramme, Historie, Ersparnis, Prognose, Einstellungen und Fehler
 - **Tagesdiagramm 0–24 h** – Spitzenwert jedes Zehn-Minuten-Abschnitts nach
   echter NTP-Zeit; ein Mittelwert würde kurze Lasten verstecken
 - **Lastsignalisierung über die RGB-LED** auf der Platine – grün / orange / rot
@@ -304,8 +304,16 @@ die Position.
 | 4 | **Wetter** | Bewölkung, Temperatur, Wind, Einstrahlung, Ertragsprognose |
 | 5 | **Wechselrichter** | Temperatur, Auslastung, Ladespannungen, Bus-Spannung |
 | 6 | **Diagramme** | Heute 0–24 h: PV und Last, Batterieleistung, SOC |
-| 7 | **Einstellungen** | IP, Signal, Laufzeit, Speicher, Version + Diagnosewerkzeuge |
-| 8 | **Einstellungen 2** | Sprache und alle Benutzereinstellungen |
+| 7 | **Diagramme** | Heute 0–24 h: PV und Last, Batterieleistung, SOC |
+| 8 | **Temperaturen** | Heutige Diagramme der Wechselrichter- und Außentemperatur |
+| 9 | **Verlauf** | Erzeugung, Verbrauch und Ersparnis für 7 / 31 Tage oder 12 Monate |
+| 10 | **Ersparnis** | Tägliche, monatliche und jährliche Ersparnis und Eigenversorgung |
+| 11 | **Ersparnisprognose** | Saisonaler Monatsplan gegen tatsächliche Ersparnis |
+| 12 | **Einstellungen** | IP, Signal, Laufzeit, Speicher, Version + Diagnosewerkzeuge |
+| 13 | **Einstellungen 2** | Sprache und alle Benutzereinstellungen |
+| 14 | **Fehler & Ausfälle** | Fehler- und Ausfallliste mit Löschtaste |
+| 15 | **Warnungen** | Grenzwerte für SOC, Temperatur, Ausfall und RGB-LED |
+| 16 | **Über** | Firmware-Informationen und Kontakt |
 
 Auf dem Startbildschirm lässt sich **jeder Block antippen** und führt zur
 zugehörigen Detailseite.
@@ -425,7 +433,7 @@ jeder im selben Netz die Firmware überschreiben kann.
 
 ```
 SolaAssistant-TMK/
-├── SolaAssistant-TMK.ino   Hauptsketch
+├── SolarAssistant-TMK.ino  Hauptsketch
 ├── FontUi.h                Smooth-Schrift als Byte-Array (generiert)
 ├── Lang.h                  Übersetzungstabelle (generiert)
 ├── User_Setup_CYD.h        TFT_eSPI-Konfiguration – wird in die Bibliothek kopiert

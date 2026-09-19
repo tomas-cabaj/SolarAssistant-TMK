@@ -6,7 +6,7 @@ D = os.path.dirname(os.path.abspath(__file__)) + os.sep
 
 glyphs = set(io.open(D + "glyphs.txt", encoding="utf-8").read())
 ascii_ok = set(chr(c) for c in range(0x20, 0x7F))
-src = io.open(D + "SolaAssistant-TMK.ino", encoding="utf-8").read()
+src = io.open(D + "SolarAssistant-TMK.ino", encoding="utf-8").read()
 
 lits = []
 i, n = 0, len(src)

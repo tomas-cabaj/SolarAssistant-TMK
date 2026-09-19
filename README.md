@@ -2,9 +2,9 @@
 
 Grafický nástěnný monitor fotovoltaiky pro **ESP32-3248S035R** (3,5" dotykový
 displej). Čte data ze [Solar Assistant](https://solar-assistant.io/) přes jeho
-REST API a zobrazuje je na devíti obrazovkách na výšku.
+REST API a zobrazuje je na sedmnácti obrazovkách na výšku.
 
-Firmware **v1.00** · Autor: Cabaj Tomáš · 2026
+Firmware **v2.00** · Autor: Cabaj Tomáš · 2026
 
 *Další jazyky: [English](README.en.md) · [Deutsch](README.de.md)*
 *Podrobný seznam obrazovek a funkcí: [FEATURES.md](FEATURES.md)*
@@ -25,9 +25,9 @@ Firmware **v1.00** · Autor: Cabaj Tomáš · 2026
 
 | Historie | Úspory | Nastavení |
 |---|---|---|
-| ![Historie](images/08-historie.png) | ![Úspory](images/09-uspory.png) | ![Nastavení](images/11-nastaveni2.png) |
+| ![Historie](images/09-historie.png) | ![Úspory](images/10-uspory.png) | ![Nastavení](images/13-nastaveni2.png) |
 
-**[Všech 13 obrazovek na jednom listu](images/vsechny-obrazovky.png)**
+**[Všech 17 obrazovek na jednom listu](images/vsechny-obrazovky.png)**
 
 ---
 
@@ -51,8 +51,8 @@ Firmware **v1.00** · Autor: Cabaj Tomáš · 2026
 
 ## Co to umí
 
-- **9 obrazovek** – přehled, baterie, solár, síť a zátěž, počasí, měnič,
-  denní grafy a dvě stránky nastavení
+- **17 obrazovek** – přehled, baterie, solár, síť a zátěž, počasí, měnič,
+  výkonové a teplotní grafy, historie, úspory, predikce, nastavení a chyby
 - **Denní graf 0–24 h** – špička každého desetiminutového úseku podle reálného
   času z NTP; průměr by krátké odběry schoval
 - **Signalizace zátěže RGB diodou** na desce – zelená / oranžová / červená
@@ -296,8 +296,16 @@ Přepínají se tlačítky dole: **◀ | domů | ▶**. Tečky nad nimi ukazují
 | 4 | **Počasí** | Oblačnost, teplota, vítr, osvit, predikce výroby |
 | 5 | **Měnič** | Teplota, využití výkonu, nabíjecí napětí, bus napětí |
 | 6 | **Grafy** | Dnešní den 0–24 h: FVE a zátěž, výkon baterie, SOC |
-| 7 | **Nastavení** | IP, signál, čas běhu, paměť, verze + diagnostické nástroje |
-| 8 | **Nastavení 2** | Jazyk a všechna uživatelská nastavení |
+| 7 | **Grafy** | Dnešní den 0–24 h: FVE a zátěž, výkon baterie, SOC |
+| 8 | **Teploty** | Dnešní graf teploty měniče a venkovní teploty |
+| 9 | **Historie** | Výroba, spotřeba a úspory za 7 / 31 dní nebo 12 měsíců |
+| 10 | **Úspory** | Dnešní, měsíční a roční úspora, soběstačnost a denní graf |
+| 11 | **Predikce úspor** | Sezónní měsíční plán úspor proti skutečnosti |
+| 12 | **Nastavení** | IP, signál, čas běhu, paměť, verze + diagnostické nástroje |
+| 13 | **Nastavení 2** | Jazyk a všechna uživatelská nastavení |
+| 14 | **Chyby a výpadky** | Seznam chyb, výpadků a tlačítko pro smazání |
+| 15 | **Upozornění** | Limity SOC, teploty, výpadku a RGB LED |
+| 16 | **O aplikaci** | Informace o firmwaru a kontakt |
 
 Na úvodní obrazovce lze **kliknout na kterýkoli blok** a proklikne na jeho
 podrobnou stránku.
@@ -414,7 +422,7 @@ nahrát kdokoli ve stejné síti.
 
 ```
 SolaAssistant-TMK/
-├── SolaAssistant-TMK.ino   hlavní skeč
+├── SolarAssistant-TMK.ino  hlavní skeč
 ├── FontUi.h                smooth font jako pole bajtů (generovaný)
 ├── Lang.h                  překladová tabulka (generovaná)
 ├── User_Setup_CYD.h        konfigurace TFT_eSPI – kopíruje se do knihovny

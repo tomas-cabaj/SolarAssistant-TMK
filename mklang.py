@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """Vygeneruje Lang.h a nahradi ceske literaly v skeci za TR(ID)."""
 import io
+import os
 
 NL = chr(10)
 DQ = chr(34)
+D = os.path.dirname(os.path.abspath(__file__))
 
 # id, CZ, EN, PL, DE
 T = [
@@ -148,12 +150,32 @@ T = [
  ("MAX_TODAY",  "Maximum dnes","Maximum today","Maksimum dziś","Maximum heute"),
  ("ALERT_SOC",  "NÍZKÝ STAV BATERIE","LOW BATTERY","NISKI STAN BATERII","BATTERIE SCHWACH"),
  ("ALERT_TEMP", "VYSOKÁ TEPLOTA MĚNIČE","INVERTER OVERHEATING","WYSOKA TEMP. FALOWNIKA","WR ÜBERHITZT"),
+ ("S_ERRORS",   "CHYBY A VÝPADKY","ERRORS & OUTAGES","BŁĘDY I AWARIE","FEHLER & AUSFÄLLE"),
+ ("S_SET3",     "UPOZORNĚNÍ","ALERTS","ALERTY","WARNUNGEN"),
+ ("ERR_FETCH",   "VÝPADEK SPOJENÍ","CONNECTION OUTAGE","AWARIA POŁĄCZENIA","VERBINDUNGSAUSFALL"),
+ ("ERR_API",     "NEPLATNÁ DATA API","INVALID API DATA","BŁĘDNE DANE API","UNGÜLTIGE API-DATEN"),
+ ("ERR_COUNTER", "RESET POČÍTADLA","COUNTER RESET","RESET LICZNIKA","ZÄHLER-RESET"),
+ ("NO_ERRORS",   "Bez zaznamenaných chyb","No recorded errors","Brak zapisanych błędów","Keine gespeicherten Fehler"),
+ ("CLEAR_ERRORS","SMAZAT SEZNAM CHYB","CLEAR ERROR LIST","WYCZYŚĆ LISTĘ BŁĘDÓW","FEHLERLISTE LÖSCHEN"),
+ ("FAILURES",    "selhání","failures","błędy","Fehler"),
+ ("MIN_MAX",     "min/max čas","min/max time","min/max czas","Min/Max Zeit"),
+ ("SOC_EVENING", "SOC večer","SOC evening","SOC wieczorem","SOC am Abend"),
+ ("ALERT_SOC_LIMIT", "SOC pod","SOC below","SOC poniżej","SOC unter"),
+ ("ALERT_TEMP_LIMIT","Teplota nad","Temperature above","Temperatura powyżej","Temperatur über"),
+ ("ALERT_OFFLINE", "Výpadek po","Outage after","Awaria po","Ausfall nach"),
+ ("ERR_LED",     "LED při chybě","LED on error","LED przy błędzie","LED bei Fehler"),
+ ("RED",         "červená","red","czerwona","rot"),
+ ("BLUE",        "modrá","blue","niebieska","blau"),
+ ("ORANGE",      "oranžová","orange","pomarańczowa","orange"),
+ ("PURPLE",      "fialová","purple","fioletowa","lila"),
  ("TO_SLEEP",   "do uspání","to sleep","do uśpienia","bis Ruhe"),
 
  # nove stranky a jejich obsah
  ("S_RUNTIME",  "DOBĚH BATERIE","RUNTIME","CZAS PRACY","LAUFZEIT"),
+ ("S_TEMP",     "TEPLOTY","TEMPERATURES","TEMPERATURY","TEMPERATUREN"),
  ("S_HISTORY",  "HISTORIE","HISTORY","HISTORIA","VERLAUF"),
  ("S_SAVINGS",  "ÚSPORY","SAVINGS","OSZCZĘDNOŚCI","ERSPARNIS"),
+ ("S_FORECAST", "PREDIKCE ÚSPOR","SAVINGS FORECAST","PROGNOZA OSZCZĘDNOŚCI","ERSPARNISPROGNOSE"),
  ("S_ABOUT",    "O APLIKACI","ABOUT","O PROGRAMIE","ÜBER"),
  ("STATE",      "Stav","State","Stan","Status"),
  ("SUNRISE",    "Východ","Sunrise","Wschód","Aufgang"),
@@ -166,6 +188,10 @@ T = [
  ("MONTH",      "Měsíc","Month","Miesiąc","Monat"),
  ("YEAR",       "Rok","Year","Rok","Jahr"),
  ("SAVED",      "Ušetřeno","Saved","Zaoszcz.","Gespart"),
+ ("PLAN",       "Plán","Plan","Plan","Plan"),
+ ("ACTUAL",     "Skutečnost","Actual","Rzeczywistość","Tatsächlich"),
+ ("YEAR_PLAN",  "Roční plán","Year plan","Plan roczny","Jahresplan"),
+ ("OUT_TEMP",   "Venkovní teplota","Outside temperature","Temperatura zewn.","Außentemperatur"),
  ("TODAY",      "Dnes","Today","Dziś","Heute"),
  ("PRICE",      "Cena kWh","Price kWh","Cena kWh","Preis kWh"),
  ("CURRENCY",   "Měna","Currency","Waluta","Währung"),
@@ -226,7 +252,7 @@ L.append("const char* const LANG_NAME[LANG_N] = "
          + DQ + "Polski" + DQ + ", " + DQ + "Deutsch" + DQ + " };")
 L.append("")
 
-io.open(r"C:\_AI\ESP32\SolaAssistant-TMK\Lang.h", "w", encoding="utf-8", newline=NL).write(NL.join(L))
+io.open(os.path.join(D, "Lang.h"), "w", encoding="utf-8", newline=NL).write(NL.join(L))
 print("Lang.h: %d retezcu x %d jazyky" % (len(T), len(LANGS)))
 
 # ------------------------------------------------- sada znaku pro font ---
@@ -239,7 +265,7 @@ chars.update(LANG_NAME_EXTRA := "ČeštinaEnglishPolskiDeutsch")
 # symboly men z pole OPT_CURR, stupen a druha mocnina u jednotek.
 chars.update("Kč€ zł $ °²")
 extra = sorted(c for c in chars if ord(c) > 0x7E)
-io.open(r"C:\_AI\ESP32\SolaAssistant-TMK\glyphs.txt",
+io.open(os.path.join(D, "glyphs.txt"),
         "w", encoding="utf-8", newline=NL).write("".join(extra))
 # vypis jen poctu, konzole ve Windows neumi vsechny znaky
 print("znaku nad ASCII:", len(extra))

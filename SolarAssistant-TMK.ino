@@ -9,11 +9,11 @@
  *
  *  ---------------------------------------------------------------------
  *  CZ: Cte data ze Solar Assistant pres jeho REST API a zobrazuje je na
- *      trinacti obrazovkach. Prepina se tlacitky dole: [<] [domu] [>],
+ *      sedmnacti obrazovkach. Prepina se tlacitky dole: [<] [domu] [>],
  *      na uvodni strance se da kliknout primo na kterykoli blok.
  *
  *  EN: Reads data from Solar Assistant over its REST API and shows it on
- *      thirteen screens. Switched by the buttons at the bottom:
+ *      seventeen screens. Switched by the buttons at the bottom:
  *      [<] [home] [>]; on the overview any block can be tapped directly.
  *  ---------------------------------------------------------------------
  *
@@ -25,11 +25,15 @@
  *   5  POCASI  / WEATHER      oblacnost, teplota, vychod a zapad slunce
  *   6  MENIC   / INVERTER     teplota, vykony, nabijeci napeti
  *   7  GRAFY   / CHARTS       dnesni den 0-24 h
- *   8  HISTORIE/ HISTORY      poslednich 7 dni
- *   9  USPORY  / SAVINGS      den, mesic, rok a kolik to usetrilo
- *  10  NASTAVENI / SETTINGS   stav site a diagnosticke nastroje
- *  11  NASTAVENI 2 / SETTINGS 2  jazyk a uzivatelske volby
- *  12  O APLIKACI / ABOUT     verze, deska, kontakt
+ *   8  TEPLOTY / TEMPERATURES denni grafy teplot
+ *   9  HISTORIE/ HISTORY      poslednich 7 dni
+ *  10  USPORY  / SAVINGS      den, mesic, rok a kolik to usetrilo
+ *  11  PREDIKCE / FORECAST    planovane a skutecne uspory
+ *  12  NASTAVENI / SETTINGS   stav site a diagnosticke nastroje
+ *  13  NASTAVENI 2 / SETTINGS 2  jazyk a uzivatelske volby
+ *  14  CHYBY / ERRORS         zaznam chyb a vypadku
+ *  15  UPOZORNENI / ALERTS    limity a LED chyb
+ *  16  O APLIKACI / ABOUT     verze, deska, kontakt
  *
  *  ---------------------------------------------------------------------
  *  CZ: Rozhrani je ve ctyrech jazycich (CZ/EN/PL/DE), tabulka je v Lang.h.
@@ -82,7 +86,7 @@
 // EN: In Arduino IDE the board shows up under Tools > Port as a network port.
 // Heslo nechte prazdne pro aktualizaci bez hesla.
 // EN: Leave the password empty for updates without one.
-#define FW_VERSION   "1.00"
+#define FW_VERSION   "2.00"
 
 // ================= NASTAVENI / SETTINGS ================================================
 // Vychozi hodnoty. Vse nize se da zmenit na strance NASTAVENI 2 a uklada
@@ -90,17 +94,14 @@
 // se do NVS, takze prezije restart. / in NVS, so it survives a reboot.
 // pod kolik procent hlasit nizky stav baterie
 // EN: below how many percent to report a low battery
-#define ALERT_SOC     20
 // nad kolik stupnu hlasit prehrivani menice
 // EN: above how many degrees to report inverter overheating
-#define ALERT_TEMP    70
 // po kolika neuspesnych nactenich restartovat
 // EN: how many failed fetches before rebooting
 #define FAIL_REBOOT   30
 
 // po jake dobe bez novych dat je hlasit jako stara
 // EN: how long without new data before reporting it as stale
-#define STALE_MS    75000
 
 // cas z internetu; retezec pasma resi i prechod na letni cas
 // EN: time from the internet; the zone string handles daylight saving too
@@ -200,7 +201,7 @@ void tAs(const char* str, int32_t x, int32_t y, uint8_t font) {
 #define CONT_Y      42          // zacatek obsahu / start of the content area
 #define CONT_H     (NAV_Y - CONT_Y - 4)
 
-#define SCREENS     13
+#define SCREENS     17
 
 // ================= HODNOTY Z API / API VALUES ============================================
 float v_pv_power = 0, v_load_power = 0, v_grid_power = 0, v_batt_power = 0;
@@ -286,12 +287,17 @@ const uint16_t OPT_BLINK[] = { 0, 1500, 2000, 2500, 3000, 4000 };   // 0 = nikdy
 const uint16_t OPT_PRICE[] = { 10, 20, 25, 30, 50, 100, 200, 300,   // cena * 100 / price * 100
                                400, 500, 600, 700, 800, 1000, 1200, 1500 };
 const char* const OPT_CURR[] = { "Kč", "€", "zł", "$" };
+const uint8_t  OPT_ALERT_SOC[]  = { 10, 15, 20, 25, 30 };
+const uint8_t  OPT_ALERT_TEMP[] = { 55, 60, 65, 70, 75, 80 };
+const uint32_t OPT_STALE[]      = { 60000, 75000, 120000, 180000, 300000 };
+const uint8_t  OPT_ERR_LED[]    = { 0, 1, 2, 3, 4 };  // vyp., cervena, modra, oranz., fialova
 
 #define OPT_N(a) (int)(sizeof(a) / sizeof(a[0]))
 
 uint8_t iFetch = 1, iSleep = 2, iBright = 3, iRange = 1;
 uint8_t iGreen = 2, iOrange = 1, iRot = 0;
 uint8_t iBlink = 0, iPrice = 10, iCurr = 0;
+uint8_t iAlertSoc = 2, iAlertTemp = 3, iStale = 1, iErrLed = 1;
 
 #define CFG_FETCH   OPT_FETCH[iFetch]
 #define CFG_SLEEP   OPT_SLEEP[iSleep]
@@ -303,6 +309,10 @@ uint8_t iBlink = 0, iPrice = 10, iCurr = 0;
 #define CFG_BLINK   OPT_BLINK[iBlink]
 #define CFG_PRICE   (OPT_PRICE[iPrice] / 100.0f)
 #define CFG_CURR    OPT_CURR[iCurr]
+#define CFG_ALERT_SOC  OPT_ALERT_SOC[iAlertSoc]
+#define CFG_ALERT_TEMP OPT_ALERT_TEMP[iAlertTemp]
+#define CFG_STALE      OPT_STALE[iStale]
+#define CFG_ERR_LED    OPT_ERR_LED[iErrLed]
 // jazyk rozhrani, uklada se do NVS
 // EN: interface language, stored in NVS
 uint8_t  lang = LANG_CZ;
@@ -321,6 +331,18 @@ uint32_t lastFetch = 0, lastOkFetch = 0;
 // EN: Zero is a valid timestamp, so the first successful fetch is tracked by
 //     its own flag instead of comparing lastOkFetch against zero.
 bool     haveFetch = false;
+
+// Poslednich 16 udalosti zustava v NVS i po restartu. Jeden zaznam ma jen
+// typ, pocet opakovani a cas, aby diagnostika neplytvala pameti.
+// EN: The latest 16 events stay in NVS across restarts. Each record keeps
+//     only type, repeat count and time, so diagnostics stay memory-efficient.
+#define ERR_LOG_N 16
+enum { ERR_FETCH = 1, ERR_API, ERR_COUNTER, ERR_SOC, ERR_TEMP };
+struct ErrorEntry { uint8_t type, count, hour, minute; uint16_t yday, durationMin; };
+ErrorEntry errorLog[ERR_LOG_N];
+uint8_t errCount = 0, errPos = 0;
+uint8_t activeErrors = 0;
+bool apiInvalid = false;
 
 // millis() pretece po 49 dnech. Rozdily dvou casu to prezijou samy, ale doba
 // behu ne - proto se preteceni pocitaji zvlast.
@@ -342,6 +364,7 @@ uint32_t socPrevMs = 0;
 // EN: The array is cleared at midnight, so the chart shows today only.
 #define DAY_N 144
 int16_t dPv[DAY_N], dLoad[DAY_N], dBatt[DAY_N];
+int16_t dInvTemp[DAY_N], dOutTemp[DAY_N];
 uint8_t dSoc[DAY_N];
 bool    dHas[DAY_N];
 int     curSlot = -1, curDay = -1;
@@ -369,6 +392,15 @@ int      hdCount = 0, hdPos = 0;
 
 uint16_t hmPv[12], hmLoad[12], hmSave[12];
 uint16_t hmBIn[12], hmBOut[12], hmGrid[12];
+int      sumYear = -1;
+
+// Sezonni plan vlastni spotreby po mesicich v desetinach kWh.
+// EN: Seasonal plan of self-consumed energy by month, in tenths of kWh.
+// Vychazi z dodane tabulky: zatez minus energie odebrana ze site.
+// EN: Based on the supplied table: load minus energy imported from the grid.
+const uint16_t PLAN_OWN_KWH10[12] = {
+   55, 153, 721, 658, 828, 924, 1040, 1080, 579, 311, 220, 99
+};
 
 // Stav kumulativnich pocitadel o pulnoci.
 // EN: State of the cumulative counters at midnight.
@@ -395,12 +427,83 @@ bool    histLoaded = false;
 // EN: daily extremes, cleared at midnight together with the history
 int16_t peakPv = 0, maxLoad = 0;
 uint8_t minSoc = 100;
+int16_t minInvTemp = 32767, maxInvTemp = -32768, minOutTemp = 32767, maxOutTemp = -32768;
+int16_t minInvSlot = -1, maxInvSlot = -1, minOutSlot = -1, maxOutSlot = -1;
 
 
 
 // ===========================================================================
 // RGB LED - signalizace zateze / RGB LED - load signalling
 // ===========================================================================
+
+uint8_t errorBit(uint8_t type) { return (uint8_t)(1U << (type - 1)); }
+
+const char* errorName(uint8_t type) {
+  switch (type) {
+    case ERR_FETCH:   return TR(T_ERR_FETCH);
+    case ERR_API:     return TR(T_ERR_API);
+    case ERR_COUNTER: return TR(T_ERR_COUNTER);
+    case ERR_SOC:     return TR(T_ALERT_SOC);
+    default:          return TR(T_ALERT_TEMP);
+  }
+}
+
+void errorSave() {
+  prefs.putBytes("errLog", errorLog, sizeof(errorLog));
+  prefs.putUChar("errCnt", errCount);
+  prefs.putUChar("errPos", errPos);
+}
+
+void errorLoad() {
+  prefs.getBytes("errLog", errorLog, sizeof(errorLog));
+  errCount = prefs.getUChar("errCnt", 0);
+  errPos = prefs.getUChar("errPos", 0);
+  if (errCount > ERR_LOG_N) errCount = 0;
+  if (errPos >= ERR_LOG_N) errPos = 0;
+}
+
+void errorClear() {
+  memset(errorLog, 0, sizeof(errorLog));
+  errCount = errPos = 0;
+  errorSave();
+}
+
+void errorStart(uint8_t type) {
+  uint8_t bit = errorBit(type);
+  if (activeErrors & bit) return;
+  activeErrors |= bit;
+  struct tm t;
+  ErrorEntry& entry = errorLog[errPos];
+  entry.type = type; entry.count = 1; entry.yday = 0; entry.durationMin = 0; entry.hour = 255; entry.minute = 255;
+  if (getLocalTime(&t, 5)) {
+    entry.yday = (uint16_t)t.tm_yday;
+    entry.hour = (uint8_t)t.tm_hour;
+    entry.minute = (uint8_t)t.tm_min;
+  }
+  errPos = (errPos + 1) % ERR_LOG_N;
+  if (errCount < ERR_LOG_N) errCount++;
+  errorSave();
+}
+
+void errorStop(uint8_t type) {
+  uint8_t bit = errorBit(type);
+  if (!(activeErrors & bit)) return;
+  activeErrors &= (uint8_t)~bit;
+  if ((type == ERR_FETCH || type == ERR_API) && errCount > 0 && haveFetch) {
+    ErrorEntry& entry = errorLog[(errPos + ERR_LOG_N - 1) % ERR_LOG_N];
+    if (entry.type == type) {
+      uint32_t mins = (millis() - lastOkFetch + 59999UL) / 60000UL;
+      entry.durationMin = mins > 65535UL ? 65535U : (uint16_t)mins;
+      errorSave();
+    }
+  }
+}
+
+void errorRepeat(uint8_t type) {
+  if (!(activeErrors & errorBit(type)) || errCount == 0) return;
+  ErrorEntry& entry = errorLog[(errPos + ERR_LOG_N - 1) % ERR_LOG_N];
+  if (entry.type == type && entry.count < 255) { entry.count++; errorSave(); }
+}
 
 // LED na desce je zapojena jako aktivni v LOW, proto se strida obraci
 // EN: the on-board LED is active LOW, so the duty cycle is inverted
@@ -416,11 +519,11 @@ void setLed(uint8_t r, uint8_t g, uint8_t b) {
 // EN: Shows as a red frame around the content, a red header, a blinking
 // diodou a textem na prislusne strance. / LED and text on the relevant screen.
 bool alertActive() {
-  return dataOk && (v_soc < ALERT_SOC || i_temp > ALERT_TEMP);
+  return dataOk && (v_soc < CFG_ALERT_SOC || i_temp > CFG_ALERT_TEMP);
 }
 
 const char* alertText() {
-  return v_soc < ALERT_SOC ? TR(T_ALERT_SOC) : TR(T_ALERT_TEMP);
+  return v_soc < CFG_ALERT_SOC ? TR(T_ALERT_SOC) : TR(T_ALERT_TEMP);
 }
 
 // uroven zateze: 0 mala, 1 stredni, 2 velka, 3 bez dat
@@ -453,6 +556,16 @@ uint16_t loadColor() {
 }
 
 void updateLoadLed() {
+  if (activeErrors && CFG_ERR_LED > 0) {
+    bool on = (millis() / 500) % 2;
+    switch (CFG_ERR_LED) {
+      case 1: setLed(on ? 255 : 0, 0, 0); break;
+      case 2: setLed(0, 0, on ? 255 : 0); break;
+      case 3: setLed(on ? 255 : 0, on ? 110 : 0, 0); break;
+      default:setLed(on ? 255 : 0, 0, on ? 255 : 0); break;
+    }
+    return;
+  }
   // pri upozorneni dioda blika cervene
   // EN: during an alert the LED blinks red
   if (alertActive()) {
@@ -775,6 +888,16 @@ const char* fmtPower(float w) {
   return fbuf[fidx];
 }
 
+// Castka vzdy pouziva aktualne zvolenou menu. Vlastni formatter drzi jeden
+// argument fmt() mimo cestu a zachovava stejny kruhovy buffer.
+// EN: Money always uses the selected currency. Its own formatter keeps the
+//     one-argument fmt() contract and shares the same circular buffer.
+const char* fmtMoney(float value) {
+  fidx = (fidx + 1) % 8;
+  snprintf(fbuf[fidx], sizeof(fbuf[fidx]), "%.0f %s", value, CFG_CURR);
+  return fbuf[fidx];
+}
+
 const char* weatherText(int code) {
   if (code == 0)   return TR(T_W_CLEAR);
   if (code <= 2)   return TR(T_W_PARTLY);
@@ -848,8 +971,8 @@ void scrOverview() {
   //     or stored.
   static char savBuf[32];
   float savedAll = savedToday() + w_pv_remaining * CFG_PRICE;
-  snprintf(savBuf, sizeof(savBuf), "%s %.0f / %.0f %s",
-           TR(T_TODAY), savedToday(), savedAll, CFG_CURR);
+  snprintf(savBuf, sizeof(savBuf), "%s %.0f %s / %.0f %s",
+           TR(T_TODAY), savedToday(), CFG_CURR, savedAll, CFG_CURR);
   tft.setTextDatum(MC_DATUM);
   tft.setTextColor(C_BATT, C_CARD);
   tCz(savBuf, 160, 177);
@@ -942,7 +1065,7 @@ void scrBattery() {
 
   // pri nizkem stavu baterie je misto smeru toku varovani
   // EN: on a low battery the warning replaces the flow direction
-  if (v_soc < ALERT_SOC) {
+  if (v_soc < CFG_ALERT_SOC) {
     tft.setTextColor(C_GRID, C_BG);
     tCz(TR(T_ALERT_SOC), cx, 220);
   } else {
@@ -962,9 +1085,13 @@ void scrBattery() {
 
   tft.setTextColor(C_DIM, C_BG);
   tCz(TR(T_MIN_TODAY), 6, 396);
-  tft.setTextDatum(TR_DATUM);
+  tft.setTextDatum(MC_DATUM);
   tft.setTextColor(C_TXT, C_BG);
-  tCz(fmt("%.0f %%", (float)minSoc), 314, 396);
+  tCz(fmt("%.0f %%", (float)minSoc), 112, 396);
+  // Optimisticky odhad: cela zbyvajici predikovana vyroba muze do baterie.
+  float forecastSoc = v_batt_capacity > 0 ? min(100.0f, v_soc + w_pv_remaining / v_batt_capacity * 100.0f) : v_soc;
+  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_SOC_EVENING), 206, 396);
+  tft.setTextColor(C_BATT, C_BG); tCz(fmt("%.0f %%", forecastSoc), 306, 396);
   tft.setTextDatum(TL_DATUM);
 }
 
@@ -1112,7 +1239,7 @@ void scrInverter() {
   halfGaugeU(160, 160, 100, 20, i_temp, 100, tc,
              fmt("%.1f", i_temp), "°C", TR(T_INV_TEMP));
 
-  if (i_temp > ALERT_TEMP) {
+  if (i_temp > CFG_ALERT_TEMP) {
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(C_GRID, C_BG);
     tCz(TR(T_ALERT_TEMP), SCR_W / 2, 176);
@@ -1158,8 +1285,9 @@ void scrInverter() {
 
 void plotDay(int gy, int gh, int16_t* data, int maxV, uint16_t col, bool bipolar) {
   int prevX = -1, prevY = -1;
+  bool gap = false;
   for (int i = 0; i < DAY_N; i++) {
-    if (!dHas[i]) { prevX = -1; continue; }
+    if (!dHas[i]) { if (prevX >= 0) gap = true; continue; }
     int x = PLOT_X0 + i * PLOT_STEP;
     int y;
     if (bipolar) {
@@ -1170,21 +1298,44 @@ void plotDay(int gy, int gh, int16_t* data, int maxV, uint16_t col, bool bipolar
       int h = (int)((long)constrain((int)data[i], 0, maxV) * (gh - 2) / maxV);
       y = gy + gh - 1 - h;
     }
-    if (prevX >= 0) tft.drawLine(prevX, prevY, x, y, col);
+    if (prevX >= 0) tft.drawLine(prevX, prevY, x, y, gap ? C_GRID : col);
     else            tft.drawPixel(x, y, col);
     prevX = x; prevY = y;
+    gap = false;
   }
 }
 
 void plotDaySoc(int gy, int gh, uint16_t col) {
   int prevX = -1, prevY = -1;
+  bool gap = false;
   for (int i = 0; i < DAY_N; i++) {
-    if (!dHas[i]) { prevX = -1; continue; }
+    if (!dHas[i]) { if (prevX >= 0) gap = true; continue; }
     int x = PLOT_X0 + i * PLOT_STEP;
     int y = gy + gh - 1 - (int)((long)dSoc[i] * (gh - 2) / 100);
-    if (prevX >= 0) tft.drawLine(prevX, prevY, x, y, col);
+    if (prevX >= 0) tft.drawLine(prevX, prevY, x, y, gap ? C_GRID : col);
     else            tft.drawPixel(x, y, col);
     prevX = x; prevY = y;
+    gap = false;
+  }
+}
+
+// Graf hodnot v desetinach stupne s pevnym rozsahem. Pevna osa neumozni,
+// aby stejna teplota vypadala pri dalsim dni jako jina.
+// EN: Plot tenths of a degree on a fixed range, so equal temperatures keep
+//     the same visual meaning from one day to the next.
+void plotDayRange(int gy, int gh, int16_t* data, int minV, int maxV, uint16_t col) {
+  if (maxV <= minV) return;
+  int prevX = -1, prevY = -1;
+  bool gap = false;
+  for (int i = 0; i < DAY_N; i++) {
+    if (!dHas[i]) { if (prevX >= 0) gap = true; continue; }
+    int x = PLOT_X0 + i * PLOT_STEP;
+    int v = constrain((int)data[i], minV, maxV);
+    int y = gy + gh - 1 - (int)((long)(v - minV) * (gh - 2) / (maxV - minV));
+    if (prevX >= 0) tft.drawLine(prevX, prevY, x, y, gap ? C_GRID : col);
+    else            tft.drawPixel(x, y, col);
+    prevX = x; prevY = y;
+    gap = false;
   }
 }
 
@@ -1296,12 +1447,49 @@ void scrGraphs() {
 }
 
 // ===========================================================================
+// OBRAZOVKA - TEPLOTY / SCREEN - TEMPERATURES
+// ===========================================================================
+void scrTemperatures() {
+  if (!timeOk) {
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(C_DIM, C_BG);
+    tCz(TR(T_WAIT_TIME), 160, 200);
+    tCz(TR(T_NEED_TIME), 160, 224);
+    tft.setTextDatum(TL_DATUM);
+    return;
+  }
+
+  char invExt[64], outExt[64];
+  if (minInvSlot >= 0) snprintf(invExt, sizeof(invExt), "%.1f/%02d:%02d  %.1f/%02d:%02d",
+      minInvTemp / 10.0f, minInvSlot / 6, (minInvSlot % 6) * 10,
+      maxInvTemp / 10.0f, maxInvSlot / 6, (maxInvSlot % 6) * 10);
+  else snprintf(invExt, sizeof(invExt), "%s", TR(T_NO_DATA));
+  if (minOutSlot >= 0) snprintf(outExt, sizeof(outExt), "%.1f/%02d:%02d  %.1f/%02d:%02d",
+      minOutTemp / 10.0f, minOutSlot / 6, (minOutSlot % 6) * 10,
+      maxOutTemp / 10.0f, maxOutSlot / 6, (maxOutSlot % 6) * 10);
+  else snprintf(outExt, sizeof(outExt), "%s", TR(T_NO_DATA));
+
+  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_MIN_MAX), 6, 47);
+  tft.setTextDatum(TR_DATUM); tft.setTextColor(C_PV, C_BG); tCz(invExt, 314, 47); tft.setTextDatum(TL_DATUM);
+  graphFrame(82, 120, TR(T_INV_TEMP), fmt("%.1f °C", i_temp), C_PV);
+  plotDayRange(82, 120, dInvTemp, 0, 1000, C_PV);
+  yAxis(82, 120, "100", "50", "0");
+
+  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_MIN_MAX), 6, 237);
+  tft.setTextDatum(TR_DATUM); tft.setTextColor(C_WEATH, C_BG); tCz(outExt, 314, 237); tft.setTextDatum(TL_DATUM);
+  graphFrame(272, 120, TR(T_OUT_TEMP), fmt("%.1f °C", w_temp), C_WEATH);
+  plotDayRange(272, 120, dOutTemp, -200, 400, C_WEATH);
+  yAxis(272, 120, "40", "10", "-20");
+  timeAxis(412);
+}
+
+// ===========================================================================
 // OBRAZOVKA - DOBEH BATERIE / SCREEN - BATTERY RUNTIME
 // ===========================================================================
 void scrRuntime() {
   float h = battHours();
   bool  chg = v_batt_power >= 0;
-  uint16_t col = chg ? C_BATT : (v_soc < ALERT_SOC ? C_GRID : C_PV);
+  uint16_t col = chg ? C_BATT : (v_soc < CFG_ALERT_SOC ? C_GRID : C_PV);
 
   // velky cas ve tvaru h:mm, sedmisegmentove pismo ma dvojtecku
   // EN: large time as h:mm, the seven segment font has a colon
@@ -1588,6 +1776,66 @@ void scrSavings() {
 }
 
 // ===========================================================================
+// OBRAZOVKA - PREDIKCE USPORY / SCREEN - SAVINGS FORECAST
+// ===========================================================================
+float plannedSave(uint8_t mon) {
+  return mon < 12 ? PLAN_OWN_KWH10[mon] * CFG_PRICE / 10.0f : 0;
+}
+
+float actualMonthSave(uint8_t mon) {
+  float value = mon < 12 ? hmSave[mon] / 10.0f : 0;
+  if (mon == lastMon) value += savedToday();
+  return value;
+}
+
+void scrForecast() {
+  int mon = lastMon;
+  if (mon < 0 || mon > 11) mon = 0;
+  float monthPlan = plannedSave(mon);
+  float monthActual = actualMonthSave(mon);
+  float yearPlan = 0, yearActual = 0;
+  for (int i = 0; i < 12; i++) {
+    yearPlan += plannedSave(i);
+    yearActual += actualMonthSave(i);
+  }
+
+  statBoxSmall(6, 52, 150, 52, TR(T_PLAN), fmtMoney(monthPlan), C_PV);
+  statBoxSmall(164, 52, 150, 52, TR(T_ACTUAL), fmtMoney(monthActual), C_BATT);
+  statBoxSmall(6, 110, 150, 52, TR(T_YEAR_PLAN), fmtMoney(yearPlan), C_PV);
+  statBoxSmall(164, 110, 150, 52, TR(T_SAVED), fmtMoney(yearActual), C_BATT);
+
+  const int gx = 6, gy = 196, gw = 308, gh = 184;
+  float maxV = 1;
+  for (int i = 0; i < 12; i++) {
+    float plan = plannedSave(i), actual = actualMonthSave(i);
+    if (plan > maxV) maxV = plan;
+    if (actual > maxV) maxV = actual;
+  }
+  maxV = ceilf(maxV / 50.0f) * 50.0f;
+  tft.setTextColor(C_DIM, C_BG);
+  tCz(TR(T_S_FORECAST), gx, gy - 22);
+  tft.setTextDatum(TR_DATUM);
+  tCz(fmtMoney(maxV), gx + gw, gy - 22);
+  tft.setTextDatum(TL_DATUM);
+  tft.drawRect(gx, gy, gw, gh, C_LINE);
+
+  const int step = gw / 12;
+  for (int i = 0; i < 12; i++) {
+    int x = gx + i * step;
+    int planH = (int)(plannedSave(i) * (gh - 4) / maxV);
+    int actualH = (int)(actualMonthSave(i) * (gh - 4) / maxV);
+    tft.fillRect(x + 2, gy + gh - planH - 1, 9, planH, C_PV);
+    if (actualH > 0) tft.fillRect(x + 12, gy + gh - actualH - 1, 9, actualH, C_BATT);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(C_DIM, C_BG);
+    tCz(fmt("%.0f", (float)(i + 1)), x + step / 2, gy + gh + 12);
+  }
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(C_PV, C_BG);   tCz(TR(T_PLAN), 8, 402);
+  tft.setTextColor(C_BATT, C_BG); tCz(TR(T_ACTUAL), 100, 402);
+}
+
+// ===========================================================================
 // OBRAZOVKA - O APLIKACI / SCREEN - ABOUT
 // ===========================================================================
 void drawLogo(int y) {
@@ -1717,6 +1965,10 @@ void cfgClamp() {
   if (iBlink  >= OPT_N(OPT_BLINK))  iBlink  = 0;
   if (iPrice  >= OPT_N(OPT_PRICE))  iPrice  = 10;
   if (iCurr   >= OPT_N(OPT_CURR))   iCurr   = 0;
+  if (iAlertSoc  >= OPT_N(OPT_ALERT_SOC))  iAlertSoc = 2;
+  if (iAlertTemp >= OPT_N(OPT_ALERT_TEMP)) iAlertTemp = 3;
+  if (iStale     >= OPT_N(OPT_STALE))      iStale = 1;
+  if (iErrLed    >= OPT_N(OPT_ERR_LED))    iErrLed = 1;
 }
 
 void cfgLoad() {
@@ -1731,6 +1983,10 @@ void cfgLoad() {
   iBlink  = prefs.getUChar("iBlink",  0);
   iPrice  = prefs.getUChar("iPrice", 10);
   iCurr   = prefs.getUChar("iCurr",   0);
+  iAlertSoc  = prefs.getUChar("iASoc", 2);
+  iAlertTemp = prefs.getUChar("iATemp", 3);
+  iStale     = prefs.getUChar("iStale", 1);
+  iErrLed    = prefs.getUChar("iELed", 1);
   cfgClamp();
 }
 
@@ -1746,6 +2002,10 @@ void cfgSave() {
   prefs.putUChar("iBlink",  iBlink);
   prefs.putUChar("iPrice",  iPrice);
   prefs.putUChar("iCurr",   iCurr);
+  prefs.putUChar("iASoc",  iAlertSoc);
+  prefs.putUChar("iATemp", iAlertTemp);
+  prefs.putUChar("iStale", iStale);
+  prefs.putUChar("iELed",  iErrLed);
 }
 
 // text hodnoty pro dany radek / value text for the given row
@@ -1826,6 +2086,82 @@ void cfgNext(int row) {
   }
   cfgSave();
   drawScreen();
+}
+
+#define S3_Y0  64
+#define S3_H   54
+#define S3_STEP 62
+#define S3_ROWS 4
+
+const char* errLedName() {
+  switch (CFG_ERR_LED) {
+    case 0: return TR(T_OFF);
+    case 1: return TR(T_RED);
+    case 2: return TR(T_BLUE);
+    case 3: return TR(T_ORANGE);
+    default: return TR(T_PURPLE);
+  }
+}
+
+const char* cfg3Value(int row) {
+  switch (row) {
+    case 0: return fmt("%.0f %%", (float)CFG_ALERT_SOC);
+    case 1: return fmt("%.0f °C", (float)CFG_ALERT_TEMP);
+    case 2: return fmt("%.0f min", CFG_STALE / 60000.0f);
+    default: return errLedName();
+  }
+}
+
+int cfg3Label(int row) {
+  switch (row) {
+    case 0: return T_ALERT_SOC_LIMIT;
+    case 1: return T_ALERT_TEMP_LIMIT;
+    case 2: return T_ALERT_OFFLINE;
+    default: return T_ERR_LED;
+  }
+}
+
+void scrSettings3() {
+  for (int i = 0; i < S3_ROWS; i++) {
+    int y = S3_Y0 + i * S3_STEP;
+    tft.fillRoundRect(6, y, 308, S3_H, 6, C_CARD);
+    tft.drawRoundRect(6, y, 308, S3_H, 6, C_LINE);
+    tft.setTextColor(C_TXT, C_CARD); tCz(TR(cfg3Label(i)), 14, y + 9);
+    tft.setTextDatum(TR_DATUM); tft.setTextColor(C_PV, C_CARD); tCz(cfg3Value(i), 306, y + 9); tft.setTextDatum(TL_DATUM);
+  }
+  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_TAP_HINT), 6, 342);
+}
+
+void cfg3Next(int row) {
+  switch (row) {
+    case 0: iAlertSoc = (iAlertSoc + 1) % OPT_N(OPT_ALERT_SOC); break;
+    case 1: iAlertTemp = (iAlertTemp + 1) % OPT_N(OPT_ALERT_TEMP); break;
+    case 2: iStale = (iStale + 1) % OPT_N(OPT_STALE); break;
+    default: iErrLed = (iErrLed + 1) % OPT_N(OPT_ERR_LED); updateLoadLed(); break;
+  }
+  cfgSave(); drawScreen();
+}
+
+void scrErrors() {
+  if (errCount == 0) {
+    tft.setTextDatum(MC_DATUM); tft.setTextColor(C_BATT, C_BG); tCz(TR(T_NO_ERRORS), 160, 180); tft.setTextDatum(TL_DATUM);
+  } else {
+    int shown = errCount < 5 ? errCount : 5;
+    for (int i = 0; i < shown; i++) {
+      ErrorEntry& e = errorLog[(errPos + ERR_LOG_N - 1 - i) % ERR_LOG_N];
+      int y = 50 + i * 56;
+      tft.fillRoundRect(6, y, 308, 50, 6, C_CARD);
+      tft.setTextColor(e.type == ERR_SOC || e.type == ERR_TEMP ? C_GRID : C_PV, C_CARD);
+      tCz(errorName(e.type), 14, y + 5);
+      char buf[38];
+      if (e.hour < 24 && e.durationMin > 0) snprintf(buf, sizeof(buf), "%02u:%02u  %u min / %u", e.hour, e.minute, e.durationMin, e.count);
+      else if (e.hour < 24) snprintf(buf, sizeof(buf), "%02u:%02u  %s %u", e.hour, e.minute, TR(T_FAILURES), e.count);
+      else snprintf(buf, sizeof(buf), "%s %u", TR(T_FAILURES), e.count);
+      tft.setTextColor(C_DIM, C_CARD); tCz(buf, 14, y + 27);
+    }
+  }
+  tft.fillRoundRect(6, 354, 308, 50, 6, C_CARD); tft.drawRoundRect(6, 354, 308, 50, 6, C_GRID);
+  tft.setTextDatum(MC_DATUM); tft.setTextColor(C_GRID, C_CARD); tCz(TR(T_CLEAR_ERRORS), 160, 379); tft.setTextDatum(TL_DATUM);
 }
 
 // ===========================================================================
@@ -2009,10 +2345,14 @@ const char* screenName(int i) {
     case 5:  return TR(T_S_WEATH);
     case 6:  return TR(T_S_INV);
     case 7:  return TR(T_S_CHART);
-    case 8:  return TR(T_S_HISTORY);
-    case 9:  return TR(T_S_SAVINGS);
-    case 10: return TR(T_S_SET);
-    case 11: return TR(T_S_SET2);
+    case 8:  return TR(T_S_TEMP);
+    case 9:  return TR(T_S_HISTORY);
+    case 10: return TR(T_S_SAVINGS);
+    case 11: return TR(T_S_FORECAST);
+    case 12: return TR(T_S_SET);
+    case 13: return TR(T_S_SET2);
+    case 14: return TR(T_S_ERRORS);
+    case 15: return TR(T_S_SET3);
     default: return TR(T_S_ABOUT);
   }
 }
@@ -2130,10 +2470,14 @@ void drawContent() {
     case 5:  scrWeather();   break;
     case 6:  scrInverter();  break;
     case 7:  scrGraphs();    break;
-    case 8:  scrHistory();   break;
-    case 9:  scrSavings();   break;
-    case 10: scrSettings();  break;
-    case 11: scrSettings2(); break;
+    case 8:  scrTemperatures(); break;
+    case 9:  scrHistory();   break;
+    case 10: scrSavings();   break;
+    case 11: scrForecast();  break;
+    case 12: scrSettings();  break;
+    case 13: scrSettings2(); break;
+    case 14: scrErrors();    break;
+    case 15: scrSettings3(); break;
     default: scrAbout();     break;
   }
 }
@@ -2191,10 +2535,28 @@ void pushHistory() {
     curSlot = -1;
     peakPv = maxLoad = maxBattPwr = 0;
     minSoc = 100;
+    minInvTemp = minOutTemp = 32767;
+    maxInvTemp = maxOutTemp = -32768;
+    minInvSlot = maxInvSlot = minOutSlot = maxOutSlot = -1;
     computeSun(t.tm_yday, tzOffsetMinutes());
   }
 
   lastMon = t.tm_mon;
+
+  // Mesicni soucty patri vzdy jen do jednoho kalendarniho roku. Bez resetu
+  // by se po dalsim roce scitaly znovu a uint16_t by nakonec pretekl.
+  // EN: Monthly totals belong to one calendar year. Without this reset they
+  //     would accumulate into the next year and eventually overflow uint16_t.
+  if (sumYear != t.tm_year) {
+    memset(hmPv, 0, sizeof(hmPv));
+    memset(hmLoad, 0, sizeof(hmLoad));
+    memset(hmSave, 0, sizeof(hmSave));
+    memset(hmBIn, 0, sizeof(hmBIn));
+    memset(hmBOut, 0, sizeof(hmBOut));
+    memset(hmGrid, 0, sizeof(hmGrid));
+    sumYear = t.tm_year;
+    sumSave();
+  }
 
   // pri prvnim behu se zaklad teprve ustavi, ten den bude neuplny
   // EN: on the first run the baseline is only being set, that day stays partial
@@ -2246,7 +2608,25 @@ void pushHistory() {
   // stav nabiti je okamzity stav, prumerovat ho nema smysl
   // EN: the state of charge is instantaneous, averaging it makes no sense
   dSoc[slot] = (uint8_t)constrain(v_soc, 0.0f, 100.0f);
+  dInvTemp[slot] = (int16_t)constrain(roundf(i_temp * 10.0f), -32000.0f, 32000.0f);
+  dOutTemp[slot] = (int16_t)constrain(roundf(w_temp * 10.0f), -32000.0f, 32000.0f);
+  if (dInvTemp[slot] < minInvTemp) { minInvTemp = dInvTemp[slot]; minInvSlot = slot; }
+  if (dInvTemp[slot] > maxInvTemp) { maxInvTemp = dInvTemp[slot]; maxInvSlot = slot; }
+  if (dOutTemp[slot] < minOutTemp) { minOutTemp = dOutTemp[slot]; minOutSlot = slot; }
+  if (dOutTemp[slot] > maxOutTemp) { maxOutTemp = dOutTemp[slot]; maxOutSlot = slot; }
   dHas[slot] = true;
+
+  // Pokles kumulativniho citace znamena reset menice/API. Zaklad srovname,
+  // ale tento vadny prubeh nezapocitame do denni historie.
+  if (baseValid) {
+    bool reset = false;
+    if (v_load_energy < baseLoad)       { baseLoad = v_load_energy; reset = true; }
+    if (v_grid_energy_in < baseGridIn)  { baseGridIn = v_grid_energy_in; reset = true; }
+    if (v_batt_energy_in < baseBattIn)  { baseBattIn = v_batt_energy_in; reset = true; }
+    if (v_batt_energy_out < baseBattOut){ baseBattOut = v_batt_energy_out; reset = true; }
+    if (reset) { baseSave(); errorStart(ERR_COUNTER); }
+    else errorStop(ERR_COUNTER);
+  }
 
   if (abs(bt) > maxBattPwr) maxBattPwr = abs(bt);
 }
@@ -2272,6 +2652,7 @@ void sumSave() {
   prefs.putBytes("hmGr",   hmGrid,   sizeof(hmGrid));
   prefs.putInt("hdCount",  hdCount);
   prefs.putInt("hdPos",    hdPos);
+  prefs.putInt("sumYear",  sumYear);
 }
 
 void sumLoad() {
@@ -2290,6 +2671,7 @@ void sumLoad() {
   prefs.getBytes("hmGr",   hmGrid,   sizeof(hmGrid));
   hdCount = prefs.getInt("hdCount", 0);
   hdPos   = prefs.getInt("hdPos",   0);
+  sumYear = prefs.getInt("sumYear", -1);
   if (hdCount < 0 || hdCount > HIST_DAYS) hdCount = 0;
   if (hdPos   < 0 || hdPos   >= HIST_DAYS) hdPos  = 0;
 }
@@ -2371,6 +2753,10 @@ float savedToday() {
   return own * CFG_PRICE;
 }
 
+void satAdd(uint16_t& total, uint16_t value) {
+  total = value > (uint16_t)(65535U - total) ? 65535U : total + value;
+}
+
 // Uzavre prave skonceny den a zapise ho do historie.
 // EN: Closes the day that just ended and writes it into the history.
 void closeDay(int mday, int mon) {
@@ -2393,12 +2779,12 @@ void closeDay(int mday, int mon) {
   if (hdCount < HIST_DAYS) hdCount++;
 
   if (mon >= 0 && mon < 12) {
-    hmPv[mon]   += pv;
-    hmLoad[mon] += ld;
-    hmSave[mon] += sv;
-    hmBIn[mon]  += bi;
-    hmBOut[mon] += bo;
-    hmGrid[mon] += gr;
+    satAdd(hmPv[mon], pv);
+    satAdd(hmLoad[mon], ld);
+    satAdd(hmSave[mon], sv);
+    satAdd(hmBIn[mon], bi);
+    satAdd(hmBOut[mon], bo);
+    satAdd(hmGrid[mon], gr);
   }
 
   sumSave();
@@ -2415,12 +2801,18 @@ void histSave() {
   prefs.putBytes("hpv",   dPv,   sizeof(dPv));
   prefs.putBytes("hload", dLoad, sizeof(dLoad));
   prefs.putBytes("hbatt", dBatt, sizeof(dBatt));
+  prefs.putBytes("hitmp", dInvTemp, sizeof(dInvTemp));
+  prefs.putBytes("hotmp", dOutTemp, sizeof(dOutTemp));
   prefs.putBytes("hsoc",  dSoc,  sizeof(dSoc));
   prefs.putBytes("hhas",  dHas,  sizeof(dHas));
   prefs.putShort("xpv",   peakPv);
   prefs.putShort("xload", maxLoad);
   prefs.putUChar("xsoc",  minSoc);
   prefs.putShort("xbatt", maxBattPwr);
+  prefs.putShort("imin", minInvTemp); prefs.putShort("imax", maxInvTemp);
+  prefs.putShort("omin", minOutTemp); prefs.putShort("omax", maxOutTemp);
+  prefs.putShort("imins", minInvSlot); prefs.putShort("imaxs", maxInvSlot);
+  prefs.putShort("omins", minOutSlot); prefs.putShort("omaxs", maxOutSlot);
 }
 
 // Nacte historii, ale jen kdyz je ulozena z dnesniho dne.
@@ -2437,12 +2829,18 @@ void histLoad() {
   prefs.getBytes("hpv",   dPv,   sizeof(dPv));
   prefs.getBytes("hload", dLoad, sizeof(dLoad));
   prefs.getBytes("hbatt", dBatt, sizeof(dBatt));
+  prefs.getBytes("hitmp", dInvTemp, sizeof(dInvTemp));
+  prefs.getBytes("hotmp", dOutTemp, sizeof(dOutTemp));
   prefs.getBytes("hsoc",  dSoc,  sizeof(dSoc));
   prefs.getBytes("hhas",  dHas,  sizeof(dHas));
   peakPv  = prefs.getShort("xpv",  0);
   maxLoad = prefs.getShort("xload", 0);
   minSoc  = prefs.getUChar("xsoc", 100);
   maxBattPwr = prefs.getShort("xbatt", 0);
+  minInvTemp = prefs.getShort("imin", 32767); maxInvTemp = prefs.getShort("imax", -32768);
+  minOutTemp = prefs.getShort("omin", 32767); maxOutTemp = prefs.getShort("omax", -32768);
+  minInvSlot = prefs.getShort("imins", -1); maxInvSlot = prefs.getShort("imaxs", -1);
+  minOutSlot = prefs.getShort("omins", -1); maxOutSlot = prefs.getShort("omaxs", -1);
   curDay  = t.tm_yday;
   Serial.println("historie dnesniho dne nactena z flash");
 }
@@ -2474,7 +2872,7 @@ const char* uptimeText() {
 // stari dat - kdyz se dlouho nic nenacetlo, nesmi displej tvarit, ze je vse v poradku
 // EN: data age - after a long silence the display must not pretend all is well
 bool dataStale() {
-  return !haveFetch || (millis() - lastOkFetch) > STALE_MS;
+  return !haveFetch || (millis() - lastOkFetch) > CFG_STALE;
 }
 
 void updateClock() {
@@ -2510,7 +2908,19 @@ void updateSocRate() {
 // ===========================================================================
 // JSON / JSON
 // ===========================================================================
-void handleItems(JsonArray arr) {
+bool metricValid(const char* topic, float value) {
+  if (!isfinite(value)) return false;
+  if (strstr(topic, "state_of_charge")) return value >= 0 && value <= 100;
+  if (strstr(topic, "temperature")) return value >= -80 && value <= 150;
+  if (strstr(topic, "percentage") || strstr(topic, "progress") || strstr(topic, "cloud_cover")) return value >= 0 && value <= 100;
+  if (strstr(topic, "energy")) return value >= 0 && value <= 10000000.0f;
+  if (strstr(topic, "voltage")) return value >= 0 && value <= 1000;
+  if (strstr(topic, "frequency")) return value >= 0 && value <= 100;
+  if (strstr(topic, "power") || strstr(topic, "apparent_power")) return fabsf(value) <= 100000;
+  return fabsf(value) <= 1000000;
+}
+
+bool handleItems(JsonArray arr) {
   // vypsat vsechny hodnoty jen kdyz si o to rekne tlacitko v nastaveni
   // EN: dump every value only when the settings button asks for it
   if (dumpRequest) {
@@ -2536,6 +2946,11 @@ void handleItems(JsonArray arr) {
     const char* topic = item["topic"];
     if (!topic) continue;
     float value = item["value"] | 0.0f;
+    if (!metricValid(topic, value)) {
+      Serial.printf("neplatna hodnota API: %s = %.2f\n", topic, value);
+      apiInvalid = true;
+      return false;
+    }
 
     for (int i = 0; i < METRIC_N; i++) {
       if (strcmp(topic, METRICS[i].topic) == 0) {
@@ -2544,6 +2959,8 @@ void handleItems(JsonArray arr) {
       }
     }
   }
+  apiInvalid = false;
+  return true;
 }
 
 // ===========================================================================
@@ -2724,8 +3141,7 @@ bool fetchData() {
     return false;
   }
 
-  handleItems(arr);
-  return true;
+  return handleItems(arr);
 }
 
 // ===========================================================================
@@ -2794,9 +3210,9 @@ void handleTouch() {
     // EN: Solar PV
     if      (y >=  44 && y < 100) target = (x < 160) ? 6 : 3;
     else if (y >= 104 && y < 160) target = (x < 160) ? 4 : 1;   // Sit / Baterie / Grid / Battery
-    // Predikce -> Uspory
-    // EN: Forecast -> Savings
-    else if (y >= 164 && y < 228) target = 9;
+    // Predikce -> predikce uspor
+    // EN: Forecast -> savings forecast
+    else if (y >= 164 && y < 228) target = 11;
     // ukazatel Zatez / PV / Load
     // EN: PV gauge
     else if (y >= 238 && y < 322) target = (x < 160) ? 4 : 3;
@@ -2814,21 +3230,33 @@ void handleTouch() {
   // radky na strance NASTAVENI 2 / rows on the SETTINGS 2 screen
   // klepnuti na graf historie prepne zobrazene obdobi
   // EN: tapping the history chart switches the period shown
-  if (screen == 8 && y >= 44 && y < 240) {
+  if (screen == 9 && y >= 44 && y < 240) {
     histRange = (histRange + 1) % 3;
     drawScreen();
     return;
   }
 
-  if (screen == 11 && y < NAV_Y) {
+  if (screen == 13 && y < NAV_Y) {
     int row = (y - S2_Y0) / S2_STEP;
     if (row >= 0 && row < S2_ROWS && (y - S2_Y0) % S2_STEP <= S2_H) cfgNext(row);
     return;
   }
 
+  if (screen == 15 && y < NAV_Y) {
+    int row = (y - S3_Y0) / S3_STEP;
+    if (row >= 0 && row < S3_ROWS && (y - S3_Y0) % S3_STEP <= S3_H) cfg3Next(row);
+    return;
+  }
+
+  if (screen == 14 && y >= 354 && y <= 404) {
+    errorClear();
+    drawScreen();
+    return;
+  }
+
   // tlacitko na strance nastaveni / button on the settings screen
   if (y < NAV_Y) {
-    if (screen == 10 && y >= SET_BTN_Y && y <= SET_BTN_Y + SET_BTN_H) {
+    if (screen == 12 && y >= SET_BTN_Y && y <= SET_BTN_Y + SET_BTN_H) {
       if (x >= SET_BTN_X && x <= SET_BTN_X + SET_BTN_W) {
         dumpRequest = true;
         // stahnout hned, necekat na interval
@@ -2843,7 +3271,7 @@ void handleTouch() {
         drawScreen();
       }
     }
-    else if (screen == 10 && y >= SET_BT3_Y && y <= SET_BT3_Y + SET_BT3_H) {
+    else if (screen == 12 && y >= SET_BT3_Y && y <= SET_BT3_Y + SET_BT3_H) {
       snprintf(setMsg, sizeof(setMsg), "%s", TR(T_SCANNING));
       drawScreen();
       netScan();
@@ -2882,6 +3310,7 @@ void setup() {
 
   prefs.begin("cyd", false);
   cfgLoad();
+  errorLoad();
   sumLoad();
   baseLoadFromNvs();
   // podsviceni pres PWM kvuli jasu
@@ -2923,7 +3352,12 @@ void setup() {
     Serial.println("cas se synchronizuje z internetu");
     splash(TR(T_WIFI_OK), TR(T_FETCHING), C_BATT);
     dataOk = fetchData();
-    if (dataOk) { lastOkFetch = millis(); haveFetch = true; pushHistory(); updateSocRate(); }
+    if (dataOk) {
+      errorStop(ERR_FETCH); errorStop(ERR_API);
+      lastOkFetch = millis(); haveFetch = true; pushHistory(); updateSocRate();
+      if (v_soc < CFG_ALERT_SOC) errorStart(ERR_SOC); else errorStop(ERR_SOC);
+      if (i_temp > CFG_ALERT_TEMP) errorStart(ERR_TEMP); else errorStop(ERR_TEMP);
+    } else { errorStart(apiInvalid ? ERR_API : ERR_FETCH); }
     updateLoadLed();
   } else {
     Serial.println("WiFi se nepodarilo pripojit");
@@ -2975,10 +3409,14 @@ void loop() {
 
     if (dataOk) {
       failCount = 0;
+      errorStop(ERR_FETCH);
+      errorStop(ERR_API);
       lastOkFetch = millis();
       haveFetch   = true;
       pushHistory();
       updateSocRate();
+      if (v_soc < CFG_ALERT_SOC) errorStart(ERR_SOC); else errorStop(ERR_SOC);
+      if (i_temp > CFG_ALERT_TEMP) errorStart(ERR_TEMP); else errorStop(ERR_TEMP);
 
       Serial.printf("SOC %5.1f %%  FVE %6.0f W  BAT %+7.0f W  ZATEZ %6.0f W  SIT %+7.0f W  %.1f C  dioda=%s\n",
                     v_soc, v_pv_power, v_batt_power, v_load_power, v_grid_power, i_temp,
@@ -2987,6 +3425,12 @@ void loop() {
       drawScreen();
     } else {
       failCount++;
+      uint8_t errorType = apiInvalid ? ERR_API : ERR_FETCH;
+      if (apiInvalid) errorStop(ERR_FETCH); else errorStop(ERR_API);
+      errorStop(ERR_SOC);
+      errorStop(ERR_TEMP);
+      errorStart(errorType);
+      errorRepeat(errorType);
       Serial.printf("nacteni selhalo (%dx po sobe)\n", failCount);
       // pri prvnim selhani rovnou zjistit proc
       // EN: on the first failure find out why right away

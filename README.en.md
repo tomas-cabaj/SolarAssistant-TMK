@@ -3,9 +3,9 @@
 A graphical wall monitor for photovoltaic systems, running on the
 **ESP32-3248S035R** (3.5" touch display). It reads data from
 [Solar Assistant](https://solar-assistant.io/) through its REST API and shows
-it across nine portrait screens.
+it across seventeen portrait screens.
 
-Firmware **v1.00** · Author: Cabaj Tomáš · 2026
+Firmware **v2.00** · Author: Cabaj Tomáš · 2026
 
 *Other languages: [Čeština](README.md) · [Deutsch](README.de.md)*
 *Detailed list of screens and features: [FEATURES.md](FEATURES.md)*
@@ -26,9 +26,9 @@ Firmware **v1.00** · Author: Cabaj Tomáš · 2026
 
 | History | Savings | Settings |
 |---|---|---|
-| ![History](images/08-historie.png) | ![Savings](images/09-uspory.png) | ![Settings](images/11-nastaveni2.png) |
+| ![History](images/09-historie.png) | ![Savings](images/10-uspory.png) | ![Settings](images/13-nastaveni2.png) |
 
-**[All 13 screens on one sheet](images/vsechny-obrazovky.png)**
+**[All 17 screens on one sheet](images/vsechny-obrazovky.png)**
 
 ---
 
@@ -52,8 +52,8 @@ Firmware **v1.00** · Author: Cabaj Tomáš · 2026
 
 ## Features
 
-- **9 screens** – overview, battery, solar, grid and load, weather, inverter,
-  daily charts and two settings pages
+- **17 screens** – overview, battery, solar, grid and load, weather, inverter,
+  power and temperature charts, history, savings, forecast, settings and errors
 - **Daily 0–24 h chart** – the peak of every ten-minute slot, bucketed by real
   NTP time; an average would hide short draws
 - **Load signalling via the on-board RGB LED** – green / orange / red
@@ -300,8 +300,16 @@ show the position.
 | 4 | **Weather** | Cloud cover, temperature, wind, irradiance, production forecast |
 | 5 | **Inverter** | Temperature, power usage, charge voltages, bus voltage |
 | 6 | **Charts** | Today 0–24 h: PV and load, battery power, SOC |
-| 7 | **Settings** | IP, signal, uptime, memory, version + diagnostic tools |
-| 8 | **Settings 2** | Language and all user-adjustable values |
+| 7 | **Charts** | Today 0–24 h: PV and load, battery power, SOC |
+| 8 | **Temperatures** | Today's inverter and outdoor temperature charts |
+| 9 | **History** | Production, consumption and savings for 7 / 31 days or 12 months |
+| 10 | **Savings** | Daily, monthly and yearly saving, self-sufficiency and daily chart |
+| 11 | **Savings forecast** | Seasonal monthly savings plan against actual results |
+| 12 | **Settings** | IP, signal, uptime, memory, version + diagnostic tools |
+| 13 | **Settings 2** | Language and all user-adjustable values |
+| 14 | **Errors & outages** | Error and outage list with a clear button |
+| 15 | **Alerts** | SOC, temperature, outage and RGB LED thresholds |
+| 16 | **About** | Firmware information and contact |
 
 On the overview screen you can **tap any block** to jump to its detail page.
 
@@ -417,7 +425,7 @@ same network can flash the device.
 
 ```
 SolaAssistant-TMK/
-├── SolaAssistant-TMK.ino   main sketch
+├── SolarAssistant-TMK.ino  main sketch
 ├── FontUi.h                smooth font as a byte array (generated)
 ├── Lang.h                  translation table (generated)
 ├── User_Setup_CYD.h        TFT_eSPI config – gets copied into the library

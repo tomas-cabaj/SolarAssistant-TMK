@@ -20,8 +20,9 @@ clock = "14:23"
 
 TITLES = {
  0:"SolarAssistant", 1:"BATERIE", 2:"DOBĚH BATERIE", 3:"SOLÁR", 4:"SÍŤ A ZÁTĚŽ",
- 5:"POČASÍ", 6:"MĚNIČ", 7:"GRAFY", 8:"HISTORIE", 9:"ÚSPORY",
- 10:"NASTAVENÍ", 11:"NASTAVENÍ 2", 12:"O APLIKACI"}
+ 5:"POČASÍ", 6:"MĚNIČ", 7:"GRAFY", 8:"TEPLOTY", 9:"HISTORIE", 10:"ÚSPORY",
+ 11:"PREDIKCE ÚSPOR", 12:"NASTAVENÍ", 13:"NASTAVENÍ 2", 14:"CHYBY A VÝPADKY",
+ 15:"UPOZORNĚNÍ", 16:"O APLIKACI"}
 
 HDR_H, NAV_Y, CONT_Y = 40, 432, 42
 
@@ -58,8 +59,8 @@ def chrome(s, idx):
     s.rrect(224, y, 88, h, 6, C_CARD); s.rrect(224, y, 88, h, 6, C_LINE, fill=False)
     s.tri(260, y + 8, 260, y + h - 8, 280, y + h // 2, C_TXT)
 
-    dx = W // 2 - (13 * 10) // 2
-    for i in range(13):
+    dx = W // 2 - (17 * 10) // 2
+    for i in range(17):
         s.circle(dx + i * 10 + 4, NAV_Y - 9, 2, C_TXT if i == idx else C_LINE)
 
 
@@ -82,7 +83,7 @@ def scr0():
     s.rrect(6, 164, 308, 64, 8, C_CARD)
     s.rrect(6, 164, 308, 64, 8, C_PV, fill=False)
     s.txt("Predikce", 14, 168, F13, C_DIM)
-    s.txt("Dnes %d / %d Kč" % (saved, saved + int(pv_rem * 6.5)), 160, 177, F13, C_BATT, "MC")
+    s.txt("Dnes %d Kč / %d Kč" % (saved, saved + int(pv_rem * 6.5)), 160, 177, F13, C_BATT, "MC")
     s.txt("%d %%" % pv_prog, 306, 168, F13, C_PV, "TR")
     s.txt("%.2f kWh" % pv_gen, 14, 188, F13, C_TXT)
     s.txt("Vyrobeno", 14, 206, F13, C_DIM)
@@ -317,7 +318,42 @@ def scr7():
     chrome(s, 7); return s
 
 
-# ============================== 8 HISTORIE ================================
+# ============================== 8 TEPLOTY =================================
+def scr8temps():
+    s = Screen()
+    GR_L, GR_W, X0, STEP = 30, 288, 31, 2
+    now = 86
+
+    def frame(gy, title, right, col, lo, hi, values):
+        gh = 120
+        s.txt(title, GR_L, gy - 18, F13, C_DIM)
+        s.txt(right, 314, gy - 18, F13, col, "TR")
+        s.rect(GR_L, gy, GR_W, gh, C_LINE, fill=False)
+        for k in range(1, 4):
+            y = gy + gh * k // 4
+            for x in range(GR_L + 3, GR_L + GR_W - 2, 6): s.d.point((x, y), C_CARD)
+        prev = None
+        for i in range(now):
+            v = values(i)
+            x = X0 + i * STEP
+            y = gy + gh - 1 - int((v - lo) * (gh - 2) / (hi - lo))
+            if prev: s.line(prev[0], prev[1], x, y, col)
+            prev = (x, y)
+        s.txt(str(hi), GR_L - 1, gy + 8, F13, C_DIM, "MR")
+        s.txt(str((hi + lo) // 2), GR_L - 1, gy + gh // 2, F13, C_DIM, "MR")
+        s.txt(str(lo), GR_L - 1, gy + gh - 8, F13, C_DIM, "MR")
+
+    frame(82, "Teplota měniče", "58.2 °C", C_PV, 0, 100,
+          lambda i: 47 + 12 * math.sin(i / 20.0))
+    frame(272, "Venkovní teplota", "18.4 °C", C_WEATH, -20, 40,
+          lambda i: 11 + 8 * math.sin((i - 45) / 40.0))
+    for hh in range(0, 25, 6):
+        x = min(max(X0 + hh * 6 * STEP, GR_L), GR_L + GR_W - 8)
+        s.txt(str(hh), x, 412, F13, C_DIM, "MC")
+    chrome(s, 8); return s
+
+
+# ============================== 9 HISTORIE ================================
 DAYS = [(12, 3.9, 2.4, 2.2, 1.8, 24), (13, 5.3, 3.4, 4.1, 3.3, 34),
         (14, 1.3, 1.0, 1.0, 1.4, 10), (15, 5.9, 2.2, 5.4, 2.6, 22),
         (16, 5.3, 3.4, 4.1, 3.3, 34), (17, 4.5, 3.0, 3.4, 3.1, 30),
@@ -358,10 +394,10 @@ def scr8():
     s.tile(6,   sy+sh+sg, 150, sh, "Nabito", "%.1f kWh" % sBi, C_BATT)
     s.tile(164, sy+sh+sg, 150, sh, "Vybito", "%.1f kWh" % sBo, C_PV)
     s.tile(6,   sy+2*(sh+sg), 308, sh, "Ušetřeno", "%d Kč" % sSv, C_BATT, small=True)
-    chrome(s, 8); return s
+    chrome(s, 9); return s
 
 
-# ============================== 9 USPORY ==================================
+# ============================== 10 USPORY =================================
 def scr9():
     s = Screen()
     y = 52
@@ -403,10 +439,39 @@ def scr9():
         s.rect(7 + i * step + 1, gy + gh - hh - 1, step - 3, hh, C_BATT)
         if i % 2 == 0:
             s.txt(str(12 + i), 7 + i * step + step // 2, gy + gh + 12, F13, C_DIM, "MC")
-    chrome(s, 9); return s
+    chrome(s, 10); return s
 
 
-# ============================== 10 NASTAVENI ==============================
+# ============================== 11 PREDIKCE USPORY ========================
+def scr11forecast():
+    s = Screen()
+    price = 6.0
+    plan_kwh = [5.5, 15.3, 72.1, 65.8, 82.8, 92.4, 104.0, 108.0, 57.9, 31.1, 22.0, 9.9]
+    actual = [28, 84, 416, 384, 468, 532, 604, 620, 347, 0, 0, 0]
+    plan = [v * price for v in plan_kwh]
+    s.tile(6, 52, 150, 52, "Plán", "%d Kč" % plan[8], C_PV, small=True)
+    s.tile(164, 52, 150, 52, "Skutečnost", "%d Kč" % actual[8], C_BATT, small=True)
+    s.tile(6, 110, 150, 52, "Roční plán", "%d Kč" % sum(plan), C_PV, small=True)
+    s.tile(164, 110, 150, 52, "Ušetřeno", "%d Kč" % sum(actual), C_BATT, small=True)
+    gx, gy, gw, gh = 6, 196, 308, 184
+    mx = max(max(plan), max(actual))
+    s.txt("Predikce úspor", gx, gy - 22, F13, C_DIM)
+    s.txt("%d Kč" % mx, gx + gw, gy - 22, F13, C_DIM, "TR")
+    s.rect(gx, gy, gw, gh, C_LINE, fill=False)
+    step = gw // 12
+    for i in range(12):
+        x = gx + i * step
+        hp = int(plan[i] * (gh - 4) / mx)
+        ha = int(actual[i] * (gh - 4) / mx)
+        s.rect(x + 2, gy + gh - hp - 1, 9, hp, C_PV)
+        if ha: s.rect(x + 12, gy + gh - ha - 1, 9, ha, C_BATT)
+        s.txt(str(i + 1), x + step // 2, gy + gh + 12, F13, C_DIM, "MC")
+    s.txt("Plán", 8, 402, F13, C_PV)
+    s.txt("Skutečnost", 100, 402, F13, C_BATT)
+    chrome(s, 11); return s
+
+
+# ============================== 12 NASTAVENI ==============================
 def scr10():
     s = Screen()
     sh, sg = 50, 6
@@ -417,7 +482,7 @@ def scr10():
     s.tile(164, y, 150, sh, "Čas běhu", "412 min", C_TXT)
     y += sh + sg
     s.tile(6,   y, 150, sh, "Volná paměť", "148 kB", C_TXT)
-    s.tile(164, y, 150, sh, "Firmware", "v1.00", C_TXT)
+    s.tile(164, y, 150, sh, "Firmware", "v2.00", C_TXT)
     y += sh + sg
     s.tile(6,   y, 150, sh, "Wi-Fi síť", "Cabajovi", C_DIM, small=True)
     s.tile(164, y, 150, sh, "OTA název", "esp32-solar-lcd", C_DIM, small=True)
@@ -433,10 +498,10 @@ def scr10():
     s.rrect(6, 342, 308, 42, 8, C_CARD); s.rrect(6, 342, 308, 42, 8, C_LOAD, fill=False)
     s.txt("SKEN SÍTĚ  (trvá až minutu)", 160, 363, F13, C_LOAD, "MC")
     s.txt("zatím nic", 160, 398, F13, C_DIM, "MC")
-    chrome(s, 10); return s
+    chrome(s, 12); return s
 
 
-# ============================== 11 NASTAVENI 2 ============================
+# ============================== 13 NASTAVENI 2 ============================
 ROWS = [("Jazyk","Čeština"),("Obnova","20 s"),("Zhasnout","5 min"),("Jas","100 %"),
         ("Rozsah ukazatelů","2.0 kW"),("Otočení","0"),("LED zelená do","800 W"),
         ("LED oranžová do","2000 W"),("LED bliká nad","vypnuto"),
@@ -450,10 +515,36 @@ def scr11():
         s.rrect(6, y, 308, 32, 6, C_PV if i == 0 else C_LINE, fill=False)
         s.txt(lb, 14, y + 8, F13, C_TXT)
         s.txt(val, 306, y + 8, F13, C_PV, "TR")
-    chrome(s, 11); return s
+    chrome(s, 13); return s
 
 
-# ============================== 12 O APLIKACI =============================
+# ============================== 14 CHYBY A VYPADKY =========================
+def scr_errors():
+    s = Screen()
+    for i, (title, detail) in enumerate([("VÝPADEK SPOJENÍ", "14:10  selhání 3"),
+                                         ("RESET POČÍTADLA", "11:40  selhání 1")]):
+        y = 50 + i * 56
+        s.rrect(6, y, 308, 50, 6, C_CARD)
+        s.txt(title, 14, y + 5, F13, C_PV)
+        s.txt(detail, 14, y + 27, F13, C_DIM)
+    s.rrect(6, 354, 308, 50, 6, C_CARD); s.rrect(6, 354, 308, 50, 6, C_GRID, fill=False)
+    s.txt("SMAZAT SEZNAM CHYB", 160, 379, F13, C_GRID, "MC")
+    chrome(s, 14); return s
+
+
+# ============================== 15 UPOZORNENI =============================
+def scr_alerts():
+    s = Screen()
+    for i, (label, val) in enumerate([("SOC pod", "20 %"), ("Teplota nad", "70 °C"),
+                                      ("Výpadek po", "2 min"), ("LED při chybě", "červená")]):
+        y = 64 + i * 62
+        s.rrect(6, y, 308, 54, 6, C_CARD); s.rrect(6, y, 308, 54, 6, C_LINE, fill=False)
+        s.txt(label, 14, y + 9, F13, C_TXT); s.txt(val, 306, y + 9, F13, C_PV, "TR")
+    s.txt("Klepnutím na řádek změníte hodnotu", 6, 342, F13, C_DIM)
+    chrome(s, 15); return s
+
+
+# ============================== 16 O APLIKACI =============================
 def logo(s, y):
     s.rrect(18, y, 284, 86, 10, C_PV)
     s.rrect(34, y + 18, 116, 50, 6, LOGO_DARK)
@@ -467,7 +558,7 @@ def scr12():
     s.txt("Cabaj Tomáš  2026", W//2, 152, F13, C_TXT, "MC")
     sy, sh, sg = 176, 50, 6
     s.tile(6,   sy,       150, sh, "Deska", "ESP32-3248S035R", C_TXT, small=True)
-    s.tile(164, sy,       150, sh, "Firmware", "v1.00", C_PV, small=True)
+    s.tile(164, sy,       150, sh, "Firmware", "v2.00", C_PV, small=True)
     s.tile(6,   sy+sh+sg, 150, sh, "Flash", "4 MB", C_TXT, small=True)
     s.tile(164, sy+sh+sg, 150, sh, "Volná paměť", "148 kB", C_TXT, small=True)
 
@@ -480,15 +571,15 @@ def scr12():
     s.txt("www.pcprovas.cz",        82, y + 28, F13, C_WEATH)
     s.txt("github.com/tomas-cabaj", 82, y + 50, F13, C_WEATH)
     s.txt("t.cabaj@email.cz",       82, y + 72, F13, C_WEATH)
-    chrome(s, 12); return s
+    chrome(s, 16); return s
 
 
 # ==========================================================================
 NAMES = ["00-prehled", "01-baterie", "02-dobeh", "03-solar", "04-sit-zatez",
-         "05-pocasi", "06-menic", "07-grafy", "08-historie", "09-uspory",
-         "10-nastaveni", "11-nastaveni2", "12-o-aplikaci"]
-FUNCS = [scr0, scr1, scr2, scr3, scr4, scr5, scr6, scr7, scr8, scr9,
-         scr10, scr11, scr12]
+         "05-pocasi", "06-menic", "07-grafy", "08-teploty", "09-historie",
+         "10-uspory", "11-predikce", "12-nastaveni", "13-nastaveni2", "14-chyby", "15-upozorneni", "16-o-aplikaci"]
+FUNCS = [scr0, scr1, scr2, scr3, scr4, scr5, scr6, scr7, scr8temps, scr8,
+         scr9, scr11forecast, scr10, scr11, scr_errors, scr_alerts, scr12]
 
 for name, fn in zip(NAMES, FUNCS):
     img = fn().im

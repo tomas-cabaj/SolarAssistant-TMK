@@ -1,7 +1,7 @@
 # Obrazovky a funkce · Screens and features
 
-Přehled všech obrazovek a funkcí firmwaru **SolarAssistant-TMK v1.00**.
-Overview of every screen and feature of the **SolarAssistant-TMK v1.00** firmware.
+Přehled všech obrazovek a funkcí firmwaru **SolarAssistant-TMK v2.00**.
+Overview of every screen and feature of the **SolarAssistant-TMK v2.00** firmware.
 
 *Ostatní dokumenty · Other documents:
 [README (CZ)](README.md) · [README (EN)](README.en.md) · [README (DE)](README.de.md)*
@@ -33,11 +33,15 @@ the position.
 | 5 | POČASÍ | WEATHER |
 | 6 | MĚNIČ | INVERTER |
 | 7 | GRAFY | CHARTS |
-| 8 | HISTORIE | HISTORY |
-| 9 | ÚSPORY | SAVINGS |
-| 10 | NASTAVENÍ | SETTINGS |
-| 11 | NASTAVENÍ 2 | SETTINGS 2 |
-| 12 | O APLIKACI | ABOUT |
+| 8 | TEPLOTY | TEMPERATURES |
+| 9 | HISTORIE | HISTORY |
+| 10 | ÚSPORY | SAVINGS |
+| 11 | PREDIKCE ÚSPOR | SAVINGS FORECAST |
+| 12 | NASTAVENÍ | SETTINGS |
+| 13 | NASTAVENÍ 2 | SETTINGS 2 |
+| 14 | CHYBY A VÝPADKY | ERRORS & OUTAGES |
+| 15 | UPOZORNĚNÍ | ALERTS |
+| 16 | O APLIKACI | ABOUT |
 
 ---
 

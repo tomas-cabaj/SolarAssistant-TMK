@@ -24,7 +24,7 @@ for line in lang.split(NL):
         tid = line.split("// ")[1].strip()
         tr[tid] = cells
 
-src = io.open(D + "SolaAssistant-TMK.ino", encoding="utf-8").read()
+src = io.open(D + "SolarAssistant-TMK.ino", encoding="utf-8").read()
 
 LANGS = ["CZ", "EN", "PL", "DE"]
 problems = []
