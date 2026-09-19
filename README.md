@@ -15,19 +15,31 @@ Firmware **v2.00** · Autor: Cabaj Tomáš · 2026
 
 > Vykresleno 1:1 (320×480) s ukázkovými daty. Skutečný displej vypadá stejně.
 
-| Přehled | Baterie | Grafy |
+| Přehled | Baterie | Doběh baterie |
 |---|---|---|
-| ![Přehled](images/00-prehled.png) | ![Baterie](images/01-baterie.png) | ![Grafy](images/07-grafy.png) |
+| ![Přehled](images/00-prehled.png) | ![Baterie](images/01-baterie.png) | ![Doběh](images/02-dobeh.png) |
 
-| Doběh baterie | Solár | Počasí |
+| Solár | Síť a zátěž | Počasí |
 |---|---|---|
-| ![Doběh](images/02-dobeh.png) | ![Solár](images/03-solar.png) | ![Počasí](images/05-pocasi.png) |
+| ![Solár](images/03-solar.png) | ![Síť a zátěž](images/04-sit-zatez.png) | ![Počasí](images/05-pocasi.png) |
 
-| Historie | Úspory | Nastavení |
+| Měnič | Grafy | Teploty |
 |---|---|---|
-| ![Historie](images/09-historie.png) | ![Úspory](images/10-uspory.png) | ![Nastavení](images/13-nastaveni2.png) |
+| ![Měnič](images/06-menic.png) | ![Grafy](images/07-grafy.png) | ![Teploty](images/08-teploty.png) |
 
-**[Všech 17 obrazovek na jednom listu](images/vsechny-obrazovky.png)**
+| Historie | Úspory | Predikce úspor |
+|---|---|---|
+| ![Historie](images/09-historie.png) | ![Úspory](images/10-uspory.png) | ![Predikce](images/11-predikce.png) |
+
+| Nastavení | Nastavení 2 | Chyby a výpadky |
+|---|---|---|
+| ![Nastavení](images/12-nastaveni.png) | ![Nastavení 2](images/13-nastaveni2.png) | ![Chyby a výpadky](images/14-chyby.png) |
+
+| Upozornění | O aplikaci | |
+|---|---|---|
+| ![Upozornění](images/15-upozorneni.png) | ![O aplikaci](images/16-o-aplikaci.png) | |
+
+[Všech 17 obrazovek na jednom listu](images/vsechny-obrazovky.png)
 
 ---
 

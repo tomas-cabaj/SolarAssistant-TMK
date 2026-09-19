@@ -1085,12 +1085,14 @@ void scrBattery() {
 
   tft.setTextColor(C_DIM, C_BG);
   tCz(TR(T_MIN_TODAY), 6, 396);
-  tft.setTextDatum(MC_DATUM);
+  tft.setTextDatum(TR_DATUM);
   tft.setTextColor(C_TXT, C_BG);
-  tCz(fmt("%.0f %%", (float)minSoc), 112, 396);
+  tCz(fmt("%.0f %%", (float)minSoc), 150, 396);
   // Optimisticky odhad: cela zbyvajici predikovana vyroba muze do baterie.
   float forecastSoc = v_batt_capacity > 0 ? min(100.0f, v_soc + w_pv_remaining / v_batt_capacity * 100.0f) : v_soc;
-  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_SOC_EVENING), 206, 396);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_SOC_EVENING), 166, 396);
+  tft.setTextDatum(TR_DATUM);
   tft.setTextColor(C_BATT, C_BG); tCz(fmt("%.0f %%", forecastSoc), 306, 396);
   tft.setTextDatum(TL_DATUM);
 }
@@ -1655,14 +1657,26 @@ void scrSavings() {
   float dPvKwh = dayPv(), dSave = savedToday();
 
   // aktualni mesic / current month
-  long mPv = 0, mLd = 0, mSv = 0;
+  float mPv = 0, mLd = 0, mSv = 0;
   if (lastMon >= 0 && lastMon < 12) {
-    mPv = hmPv[lastMon]; mLd = hmLoad[lastMon]; mSv = hmSave[lastMon];
+    mPv = hmPv[lastMon] / 10.0f;
+    mLd = hmLoad[lastMon] / 10.0f;
+    mSv = hmSave[lastMon] / 10.0f;
   }
   float dLdKwh = dayLoad();
+  // Mesicni souhrn v NVS obsahuje jen uzavrene dny. Prubezny dnesek se
+  // prida pouze pro zobrazeni, aby se pri pulnoci nezapocital podruhe.
+  if (lastMon >= 0 && lastMon < 12) {
+    mPv += dPvKwh; mLd += dLdKwh; mSv += dSave;
+  }
   // rok / year
-  long yPv = 0, yLd = 0, ySv = 0;
-  for (int i = 0; i < 12; i++) { yPv += hmPv[i]; yLd += hmLoad[i]; ySv += hmSave[i]; }
+  float yPv = 0, yLd = 0, ySv = 0;
+  for (int i = 0; i < 12; i++) {
+    yPv += hmPv[i] / 10.0f; yLd += hmLoad[i] / 10.0f; ySv += hmSave[i] / 10.0f;
+  }
+  if (lastMon >= 0 && lastMon < 12) {
+    yPv += dPvKwh; yLd += dLdKwh; ySv += dSave;
+  }
 
   // zahlavi tabulky / table header
   const int rowH = 46;
@@ -1681,9 +1695,9 @@ void scrSavings() {
   y += 26;
 
   const char* labels[3] = { TR(T_TODAY), TR(T_MONTH), TR(T_YEAR) };
-  float pv[3] = { dPvKwh, mPv / 10.0f, yPv / 10.0f };
-  float ld[3] = { dLdKwh, mLd / 10.0f, yLd / 10.0f };
-  float sv[3] = { dSave,  mSv / 10.0f, ySv / 10.0f };
+  float pv[3] = { dPvKwh, mPv, yPv };
+  float ld[3] = { dLdKwh, mLd, yLd };
+  float sv[3] = { dSave,  mSv, ySv };
 
   for (int i = 0; i < 3; i++) {
     int ry = y + i * (rowH + 6);

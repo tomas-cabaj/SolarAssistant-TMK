@@ -3,6 +3,13 @@
 Tento soubor obsahuje změny od posledního vydání firmwaru. Verze `FW_VERSION`
 se změní a na GitHubu vznikne release pouze na výslovný pokyn autora.
 
+## Nezařazeno do vydání
+
+- Opraven spodní řádek stránky Baterie: minimum a optimistický večerní SOC
+  jsou ve dvou pevných sloupcích a hodnoty se nepřekrývají.
+- Součty Měsíc a Rok na stránce Úspory nyní průběžně zahrnují i dnešní data;
+  do NVS se dnešek stále uloží až při uzavření dne, takže se nezapočítá dvakrát.
+
 ## v2.00
 
 - Přidán denní graf teploty měniče a venkovní teploty; vzorky jsou po deseti
