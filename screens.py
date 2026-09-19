@@ -586,10 +586,12 @@ for name, fn in zip(NAMES, FUNCS):
     img.save(OUT + name + ".png")
     print("  ", name + ".png")
 
-# prehledovy list 4 x 4
-sheet = Image.new("RGB", (4 * (W + 10) + 10, 4 * (H + 10) + 10), (32, 32, 36))
+# Přehledový list má čtyři sloupce a tolik řad, kolik vyžadují obrazovky.
+cols = 4
+rows = (len(NAMES) + cols - 1) // cols
+sheet = Image.new("RGB", (cols * (W + 10) + 10, rows * (H + 10) + 10), (32, 32, 36))
 for i, name in enumerate(NAMES):
     im = Image.open(OUT + name + ".png")
-    sheet.paste(im, (10 + (i % 4) * (W + 10), 10 + (i // 4) * (H + 10)))
+    sheet.paste(im, (10 + (i % cols) * (W + 10), 10 + (i // cols) * (H + 10)))
 sheet.save(OUT + "vsechny-obrazovky.png")
 print("   vsechny-obrazovky.png")
