@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+
+# Arduino build
+build/
+*.bin
+*.elf
+
+# Osobní údaje, pokud je vyčleníte do samostatného souboru
+# Personal credentials, if you move them to a separate file
+secrets.h
