@@ -9,11 +9,11 @@
  *
  *  ---------------------------------------------------------------------
  *  CZ: Cte data ze Solar Assistant pres jeho REST API a zobrazuje je na
- *      sedmnacti obrazovkach. Prepina se tlacitky dole: [<] [domu] [>],
+ *      devatenacti obrazovkach. Prepina se tlacitky dole: [<] [domu] [>],
  *      na uvodni strance se da kliknout primo na kterykoli blok.
  *
  *  EN: Reads data from Solar Assistant over its REST API and shows it on
- *      seventeen screens. Switched by the buttons at the bottom:
+ *      nineteen screens. Switched by the buttons at the bottom:
  *      [<] [home] [>]; on the overview any block can be tapped directly.
  *  ---------------------------------------------------------------------
  *
@@ -33,7 +33,9 @@
  *  13  NASTAVENI 2 / SETTINGS 2  jazyk a uzivatelske volby
  *  14  CHYBY / ERRORS         zaznam chyb a vypadku
  *  15  UPOZORNENI / ALERTS    limity a LED chyb
- *  16  O APLIKACI / ABOUT     verze, deska, kontakt
+ *  16  DNES A VCERA / TODAY & YESTERDAY  srovnani dennich hodnot
+ *  17  O APLIKACI / ABOUT     verze, deska, kontakt
+ *  18  NAVRATNOST / PAYBACK   rucni investice a vyuzita energie
  *
  *  ---------------------------------------------------------------------
  *  CZ: Rozhrani je ve ctyrech jazycich (CZ/EN/PL/DE), tabulka je v Lang.h.
@@ -86,7 +88,7 @@
 // EN: In Arduino IDE the board shows up under Tools > Port as a network port.
 // Heslo nechte prazdne pro aktualizaci bez hesla.
 // EN: Leave the password empty for updates without one.
-#define FW_VERSION   "2.00"
+#define FW_VERSION   "2.01"
 
 // ================= NASTAVENI / SETTINGS ================================================
 // Vychozi hodnoty. Vse nize se da zmenit na strance NASTAVENI 2 a uklada
@@ -128,8 +130,10 @@
 // bez dat                modra    - neni spojeni se Solar Assistant
 // EN: no data                blue     - no link to Solar Assistant
 #define LED_R            4
-#define LED_G           16
-#define LED_B           17
+// Na pouzite desce jsou fyzicke kanaly G/B oproti popisu prohozene.
+// EN: This board has the physical G/B channels swapped from the usual pin map.
+#define LED_G           17
+#define LED_B           16
 // 0-255; plny jas je v setmele mistnosti oslnujici
 // EN: 0-255; full brightness is dazzling in a dim room
 #define LED_BRIGHT      70
@@ -201,7 +205,14 @@ void tAs(const char* str, int32_t x, int32_t y, uint8_t font) {
 #define CONT_Y      42          // zacatek obsahu / start of the content area
 #define CONT_H     (NAV_Y - CONT_Y - 4)
 
-#define SCREENS     17
+#define SCREENS     19
+enum ScreenId {
+  SCR_OVERVIEW, SCR_BATTERY, SCR_RUNTIME, SCR_SOLAR, SCR_GRID, SCR_INVERTER,
+  SCR_WEATHER, SCR_GRAPHS, SCR_TEMPERATURES, SCR_HISTORY, SCR_SAVINGS,
+  SCR_FORECAST, SCR_COMPARE, SCR_ROI, SCR_ERRORS, SCR_ALERTS, SCR_SETTINGS,
+  SCR_SETTINGS2, SCR_ABOUT
+};
+static_assert(SCR_ABOUT + 1 == SCREENS, "Screen identifiers mismatch");
 
 // ================= HODNOTY Z API / API VALUES ============================================
 float v_pv_power = 0, v_load_power = 0, v_grid_power = 0, v_batt_power = 0;
@@ -291,6 +302,8 @@ const uint8_t  OPT_ALERT_SOC[]  = { 10, 15, 20, 25, 30 };
 const uint8_t  OPT_ALERT_TEMP[] = { 55, 60, 65, 70, 75, 80 };
 const uint32_t OPT_STALE[]      = { 60000, 75000, 120000, 180000, 300000 };
 const uint8_t  OPT_ERR_LED[]    = { 0, 1, 2, 3, 4 };  // vyp., cervena, modra, oranz., fialova
+const uint16_t OPT_GRID_LIMIT[] = { 0, 1000, 1500, 2000, 2500, 3000 };
+const uint16_t OPT_GRID_TIME[]  = { 5, 10, 15, 30, 60 };
 
 #define OPT_N(a) (int)(sizeof(a) / sizeof(a[0]))
 
@@ -298,6 +311,7 @@ uint8_t iFetch = 1, iSleep = 2, iBright = 3, iRange = 1;
 uint8_t iGreen = 2, iOrange = 1, iRot = 0;
 uint8_t iBlink = 0, iPrice = 10, iCurr = 0;
 uint8_t iAlertSoc = 2, iAlertTemp = 3, iStale = 1, iErrLed = 1;
+uint8_t iGridLimit = 3, iGridTime = 3;
 
 #define CFG_FETCH   OPT_FETCH[iFetch]
 #define CFG_SLEEP   OPT_SLEEP[iSleep]
@@ -313,6 +327,8 @@ uint8_t iAlertSoc = 2, iAlertTemp = 3, iStale = 1, iErrLed = 1;
 #define CFG_ALERT_TEMP OPT_ALERT_TEMP[iAlertTemp]
 #define CFG_STALE      OPT_STALE[iStale]
 #define CFG_ERR_LED    OPT_ERR_LED[iErrLed]
+#define CFG_GRID_LIMIT OPT_GRID_LIMIT[iGridLimit]
+#define CFG_GRID_TIME  OPT_GRID_TIME[iGridTime]
 // jazyk rozhrani, uklada se do NVS
 // EN: interface language, stored in NVS
 uint8_t  lang = LANG_CZ;
@@ -337,12 +353,13 @@ bool     haveFetch = false;
 // EN: The latest 16 events stay in NVS across restarts. Each record keeps
 //     only type, repeat count and time, so diagnostics stay memory-efficient.
 #define ERR_LOG_N 16
-enum { ERR_FETCH = 1, ERR_API, ERR_COUNTER, ERR_SOC, ERR_TEMP };
-struct ErrorEntry { uint8_t type, count, hour, minute; uint16_t yday, durationMin; };
+enum { ERR_FETCH = 1, ERR_API, ERR_COUNTER, ERR_SOC, ERR_TEMP, ERR_GRID };
+struct ErrorEntry { uint8_t type, count, hour, minute, endHour, endMinute; uint16_t yday, durationMin; };
 ErrorEntry errorLog[ERR_LOG_N];
 uint8_t errCount = 0, errPos = 0;
 uint8_t activeErrors = 0;
 bool apiInvalid = false;
+uint32_t gridHighSince = 0;
 
 // millis() pretece po 49 dnech. Rozdily dvou casu to prezijou samy, ale doba
 // behu ne - proto se preteceni pocitaji zvlast.
@@ -351,6 +368,47 @@ bool apiInvalid = false;
 uint32_t msLast = 0, msWraps = 0;
 int      screen = 0;
 bool     needFullRedraw = true;
+
+// Neblokujici interpolace slouzi pouze pro kresleni. Zive hodnoty API se
+// nemeni, takze upozorneni, historie a vypocty vzdy pouzivaji cerstva data.
+// EN: Non-blocking interpolation is drawing-only. Live API values stay
+// untouched, so alerts, history and calculations always see fresh data.
+enum GaugeMetric { GM_PV, GM_LOAD, GM_GRID, GM_BATT, GM_SOC, GM_CLOUD, GM_TEMP, GM_COUNT };
+// Signatury pouzivaji zakladni typ, protoze Arduino vklada automaticke
+// prototypy pred mistni enumy. Konstanty GaugeMetric zustavaji typove citelne.
+// EN: Signatures use a base type because Arduino inserts automatic prototypes
+// before local enums. GaugeMetric constants keep call sites readable.
+float gaugeTarget(uint8_t metric);
+float animatedGauge(uint8_t metric);
+void startGaugeAnimation(const float previous[GM_COUNT], bool hadData);
+void drawAnimatedGauges();
+struct GaugeAnimation {
+  float from[GM_COUNT];
+  uint32_t started;
+  bool active;
+};
+GaugeAnimation gaugeAnim = {{0}, 0, false};
+constexpr uint32_t GAUGE_ANIM_MS = 600;
+constexpr uint32_t GAUGE_FRAME_MS = 40;
+uint32_t gaugeLastFrame = 0;
+
+// Posledni bod vybrany dotykem v carovem grafu.
+// EN: Last point selected by touch in a line chart.
+struct GraphCursor {
+  int8_t screenId;
+  int8_t graphId;
+  int16_t slot;
+  bool active;
+};
+GraphCursor graphCursor = {-1, -1, -1, false};
+
+// Vybrany den ve sloupcovem grafu uspor; -1 = bez vyberu.
+// EN: Selected day in the savings bar chart; -1 means no selection.
+int8_t savingsSelected = -1;
+
+// Vybrany mesic v grafu predikce; -1 = bez vyberu.
+// EN: Selected month in the forecast chart; -1 means no selection.
+int8_t forecastSelected = -1;
 
 // rychlost zmeny SOC v %/hod / rate of SOC change in %/h
 float    socRate = 0;
@@ -418,6 +476,7 @@ int   lastMon = -1;
 // vychod a zapad slunce v minutach od pulnoci
 // EN: sunrise and sunset in minutes from midnight
 int sunRise = -1, sunSet = -1;
+int sunDayMinutes = -1;  // -1: unknown, 0/1440: polar night/day
 
 bool    timeOk = false;
 char    clockStr[8] = "--:--";
@@ -429,6 +488,15 @@ int16_t peakPv = 0, maxLoad = 0;
 uint8_t minSoc = 100;
 int16_t minInvTemp = 32767, maxInvTemp = -32768, minOutTemp = 32767, maxOutTemp = -32768;
 int16_t minInvSlot = -1, maxInvSlot = -1, minOutSlot = -1, maxOutSlot = -1;
+
+// Uzavreny vcerejsek pro prime porovnani s dneskem. Uklada se samostatne,
+// aby se neztratil pri posunu kruhove historie 31 dni.
+struct DaySummary {
+  uint16_t pv, load, save, maxLoad;
+  int16_t minInv, maxInv, minOut, maxOut;
+  uint8_t day, valid;
+};
+DaySummary yesterday = {};
 
 
 
@@ -444,7 +512,8 @@ const char* errorName(uint8_t type) {
     case ERR_API:     return TR(T_ERR_API);
     case ERR_COUNTER: return TR(T_ERR_COUNTER);
     case ERR_SOC:     return TR(T_ALERT_SOC);
-    default:          return TR(T_ALERT_TEMP);
+    case ERR_TEMP:    return TR(T_ALERT_TEMP);
+    default:          return TR(T_ERR_GRID);
   }
 }
 
@@ -474,7 +543,8 @@ void errorStart(uint8_t type) {
   activeErrors |= bit;
   struct tm t;
   ErrorEntry& entry = errorLog[errPos];
-  entry.type = type; entry.count = 1; entry.yday = 0; entry.durationMin = 0; entry.hour = 255; entry.minute = 255;
+  entry.type = type; entry.count = 1; entry.yday = 0; entry.durationMin = 0;
+  entry.hour = entry.minute = entry.endHour = entry.endMinute = 255;
   if (getLocalTime(&t, 5)) {
     entry.yday = (uint16_t)t.tm_yday;
     entry.hour = (uint8_t)t.tm_hour;
@@ -494,6 +564,8 @@ void errorStop(uint8_t type) {
     if (entry.type == type) {
       uint32_t mins = (millis() - lastOkFetch + 59999UL) / 60000UL;
       entry.durationMin = mins > 65535UL ? 65535U : (uint16_t)mins;
+      struct tm t;
+      if (getLocalTime(&t, 5)) { entry.endHour = t.tm_hour; entry.endMinute = t.tm_min; }
       errorSave();
     }
   }
@@ -524,6 +596,17 @@ bool alertActive() {
 
 const char* alertText() {
   return v_soc < CFG_ALERT_SOC ? TR(T_ALERT_SOC) : TR(T_ALERT_TEMP);
+}
+
+void updateGridAlert() {
+  if (CFG_GRID_LIMIT == 0 || v_grid_power < CFG_GRID_LIMIT) {
+    gridHighSince = 0;
+    errorStop(ERR_GRID);
+    return;
+  }
+  if (gridHighSince == 0) gridHighSince = millis();
+  if (millis() - gridHighSince >= (uint32_t)CFG_GRID_TIME * 60000UL)
+    errorStart(ERR_GRID);
 }
 
 // uroven zateze: 0 mala, 1 stredni, 2 velka, 3 bez dat
@@ -590,12 +673,18 @@ void updateLoadLed() {
 // IKONY  (kreslene vektorove, velikost ~30 px)
 // EN: ICONS  (vector drawn, about 30 px)
 // ===========================================================================
+void icoLine(int x1, int y1, int x2, int y2, uint16_t c) {
+  tft.drawLine(x1, y1, x2, y2, c);
+  if (abs(x2 - x1) >= abs(y2 - y1)) tft.drawLine(x1, y1 + 1, x2, y2 + 1, c);
+  else tft.drawLine(x1 + 1, y1, x2 + 1, y2, c);
+}
+
 void icoSun(int x, int y, uint16_t c) {
-  tft.fillCircle(x + 15, y + 15, 7, c);
+  tft.fillCircle(x + 15, y + 15, 6, c);
   for (int a = 0; a < 360; a += 45) {
     float r = a * DEG_TO_RAD;
-    tft.drawLine(x + 15 + cos(r) * 10, y + 15 + sin(r) * 10,
-                 x + 15 + cos(r) * 14, y + 15 + sin(r) * 14, c);
+    icoLine(x + 15 + cosf(r) * 10, y + 15 + sinf(r) * 10,
+            x + 15 + cosf(r) * 14, y + 15 + sinf(r) * 14, c);
   }
 }
 
@@ -608,15 +697,16 @@ void icoCloud(int x, int y, uint16_t c) {
 
 void icoSunCloud(int x, int y, uint16_t c) {
   tft.fillCircle(x + 20, y + 10, 6, C_PV);
-  icoCloud(x, y + 3, c);
+  icoCloud(x, y + 3, C_TXT);
 }
 
 void icoBattery(int x, int y, uint16_t c) {
-  tft.drawRoundRect(x + 4, y + 4, 18, 24, 3, c);
-  tft.fillRect(x + 10, y + 1, 6, 3, c);
-  // blesk / lightning bolt
-  tft.fillTriangle(x + 15, y + 8, x + 9, y + 18, x + 13, y + 18, c);
-  tft.fillTriangle(x + 11, y + 24, x + 17, y + 14, x + 13, y + 14, c);
+  tft.drawRoundRect(x + 5, y + 4, 20, 24, 4, C_TXT);
+  tft.drawRoundRect(x + 6, y + 5, 18, 22, 3, C_TXT);
+  tft.fillRect(x + 11, y + 1, 8, 3, C_TXT);
+  tft.fillRoundRect(x + 9, y + 8, 12, 16, 2, c);
+  tft.fillTriangle(x + 17, y + 9, x + 11, y + 17, x + 15, y + 17, C_TXT);
+  tft.fillTriangle(x + 13, y + 23, x + 19, y + 15, x + 15, y + 15, C_TXT);
 }
 
 void icoPlug(int x, int y, uint16_t c) {
@@ -627,47 +717,54 @@ void icoPlug(int x, int y, uint16_t c) {
 }
 
 void icoInverter(int x, int y, uint16_t c) {
-  tft.drawRoundRect(x + 5, y + 3, 20, 26, 3, c);
-  tft.fillRect(x + 9, y + 8, 12, 7, c);
-  tft.drawLine(x + 9, y + 20, x + 21, y + 20, c);
-  tft.drawLine(x + 9, y + 24, x + 21, y + 24, c);
+  tft.drawRoundRect(x + 4, y + 3, 22, 26, 4, C_TXT);
+  tft.drawRoundRect(x + 5, y + 4, 20, 24, 3, C_TXT);
+  tft.fillRoundRect(x + 8, y + 7, 14, 9, 2, C_BG);
+  icoLine(x + 10, y + 12, x + 12, y + 10, c);
+  icoLine(x + 12, y + 10, x + 15, y + 14, c);
+  icoLine(x + 15, y + 14, x + 19, y + 10, c);
+  tft.fillCircle(x + 11, y + 22, 2, C_TXT);
+  tft.fillCircle(x + 19, y + 22, 2, C_TXT);
 }
 
 // fotovoltaicky panel se stojanem / photovoltaic panel with a stand
 void icoPanel(int x, int y, uint16_t c) {
-  tft.drawRect(x + 2, y + 5, 26, 16, c);
-  tft.drawFastVLine(x + 10, y + 5, 16, c);
-  tft.drawFastVLine(x + 19, y + 5, 16, c);
-  tft.drawFastHLine(x + 2, y + 13, 26, c);
-  tft.drawLine(x + 15, y + 21, x + 15, y + 27, c);
-  tft.drawFastHLine(x + 8, y + 27, 15, c);
+  tft.fillCircle(x + 23, y + 6, 4, C_PV);
+  tft.drawRect(x + 2, y + 8, 25, 15, c);
+  tft.drawRect(x + 3, y + 9, 23, 13, c);
+  tft.drawFastVLine(x + 10, y + 9, 13, c);
+  tft.drawFastVLine(x + 18, y + 9, 13, c);
+  tft.drawFastHLine(x + 3, y + 15, 23, c);
+  icoLine(x + 15, y + 23, x + 15, y + 28, C_TXT);
+  tft.drawFastHLine(x + 8, y + 28, 15, C_TXT);
 }
 
 // prihradovy stozar vysokeho napeti / lattice transmission tower
 void icoPylon(int x, int y, uint16_t c) {
-  tft.drawLine(x + 5, y + 28, x + 13, y + 5, c);
-  tft.drawLine(x + 25, y + 28, x + 17, y + 5, c);
-  tft.drawFastHLine(x + 13, y + 5, 5, c);
-  tft.drawFastHLine(x + 4, y + 10, 22, c);
-  tft.drawFastHLine(x + 2, y + 16, 26, c);
-  tft.drawLine(x + 9, y + 18, x + 21, y + 18, c);
-  tft.drawLine(x + 10, y + 23, x + 20, y + 23, c);
-  tft.drawLine(x + 11, y + 10, x + 19, y + 16, c);
-  tft.drawLine(x + 19, y + 10, x + 11, y + 16, c);
+  icoLine(x + 6, y + 28, x + 13, y + 5, C_TXT);
+  icoLine(x + 24, y + 28, x + 17, y + 5, C_TXT);
+  tft.drawFastHLine(x + 12, y + 5, 7, C_TXT);
+  tft.drawFastHLine(x + 4, y + 11, 23, C_TXT);
+  tft.drawFastHLine(x + 1, y + 17, 29, C_TXT);
+  icoLine(x + 10, y + 11, x + 20, y + 17, C_TXT);
+  icoLine(x + 20, y + 11, x + 10, y + 17, C_TXT);
+  icoLine(x + 9, y + 18, x + 21, y + 27, C_TXT);
+  icoLine(x + 21, y + 18, x + 9, y + 27, C_TXT);
 }
 
 void icoHouse(int x, int y, uint16_t c) {
-  // sirka domu je licha, aby dvere sedly presne na stred
-  // EN: the house width is odd so the door lands exactly in the centre
-  tft.fillTriangle(x + 4, y + 15, x + 15, y + 4, x + 26, y + 15, c);
-  tft.drawRect(x + 8, y + 15, 15, 13, c);
-  tft.fillRect(x + 13, y + 20, 5, 8, c);
+  tft.fillTriangle(x + 2, y + 15, x + 15, y + 3, x + 28, y + 15, C_TXT);
+  tft.fillRect(x + 6, y + 14, 19, 14, C_TXT);
+  tft.fillRect(x + 9, y + 18, 5, 5, c);
+  tft.fillRect(x + 17, y + 18, 5, 10, c);
 }
 
 void icoTemp(int x, int y, uint16_t c) {
-  tft.drawRoundRect(x + 11, y + 3, 8, 18, 4, c);
-  tft.fillCircle(x + 15, y + 23, 6, c);
-  tft.fillRect(x + 14, y + 10, 3, 12, c);
+  tft.drawRoundRect(x + 10, y + 2, 10, 21, 5, C_TXT);
+  tft.drawRoundRect(x + 11, y + 3, 8, 19, 4, C_TXT);
+  tft.fillCircle(x + 15, y + 24, 6, C_TXT);
+  tft.fillCircle(x + 15, y + 24, 4, c);
+  tft.fillRect(x + 14, y + 10, 3, 14, c);
 }
 
 void icoWind(int x, int y, uint16_t c) {
@@ -696,11 +793,52 @@ void icoBolt(int x, int y, uint16_t c) {
 // EN: ring: angles in degrees, 0 = right, growing clockwise
 void arcRing(int cx, int cy, int rIn, int rOut, float aFrom, float aTo, uint16_t col) {
   if (aTo <= aFrom) return;
-  for (float a = aFrom; a <= aTo; a += 0.7f) {
-    float r = a * DEG_TO_RAD;
-    float c = cos(r), s = sin(r);
-    tft.drawLine(cx + c * rIn, cy + s * rIn, cx + c * rOut, cy + s * rOut, col);
+  constexpr float STEP = 1.5f;
+  for (float a = aFrom; a < aTo; a += STEP) {
+    float b = min(a + STEP, aTo);
+    float ar = a * DEG_TO_RAD, br = b * DEG_TO_RAD;
+    int aiX = lroundf(cx + cosf(ar) * rIn), aiY = lroundf(cy + sinf(ar) * rIn);
+    int aoX = lroundf(cx + cosf(ar) * rOut), aoY = lroundf(cy + sinf(ar) * rOut);
+    int biX = lroundf(cx + cosf(br) * rIn), biY = lroundf(cy + sinf(br) * rIn);
+    int boX = lroundf(cx + cosf(br) * rOut), boY = lroundf(cy + sinf(br) * rOut);
+    tft.fillTriangle(aiX, aiY, aoX, aoY, boX, boY, col);
+    tft.fillTriangle(aiX, aiY, boX, boY, biX, biY, col);
   }
+}
+
+float gaugeTarget(uint8_t metric) {
+  switch (metric) {
+    case GM_PV:    return v_pv_power;
+    case GM_LOAD:  return v_load_power;
+    case GM_GRID:  return v_grid_power;
+    case GM_BATT:  return v_batt_power;
+    case GM_SOC:   return v_soc;
+    case GM_CLOUD: return w_cloud;
+    default:       return i_temp;
+  }
+}
+
+float animatedGauge(uint8_t metric) {
+  if (!gaugeAnim.active) return gaugeTarget(metric);
+  float p = constrain((millis() - gaugeAnim.started) / (float)GAUGE_ANIM_MS, 0.0f, 1.0f);
+  p = p * p * (3.0f - 2.0f * p);
+  return gaugeAnim.from[metric] + (gaugeTarget(metric) - gaugeAnim.from[metric]) * p;
+}
+
+// Animaci pouzivaji jen stranky s pulkruhovym ukazatelem.
+// EN: Only pages containing a semicircular gauge use the animation.
+bool screenUsesGaugeAnimation(int page) {
+  return page == SCR_OVERVIEW || page == SCR_BATTERY || page == SCR_SOLAR ||
+         page == SCR_GRID || page == SCR_WEATHER || page == SCR_INVERTER;
+}
+
+void startGaugeAnimation(const float previous[GM_COUNT], bool hadData) {
+  // Animace je zamerne vypnuta: nova data se vykresli jednim prekreslenim.
+  // EN: Animation is intentionally disabled: new data is drawn in one refresh.
+  (void)previous;
+  (void)hadData;
+  gaugeLastFrame = 0;
+  gaugeAnim.active = false;
 }
 
 // Carkova stupnice po obvodu ukazatele. Carky jsou po 5 %, kazda pata
@@ -796,28 +934,26 @@ void bar(int x, int y, int w, int h, float frac, uint16_t col) {
 
 // karta s ikonou vlevo a texty vpravo (predloha)
 // EN: card with an icon on the left and text on the right (per the reference)
+#include "UiStyle.h"
+#include "WeatherIcons.h"
+#include "UiIcons.h"
+
+// Bitmapa se kresli primo z flash; nevytvari se docasny buffer v RAM.
+// EN: The bitmap is drawn directly from flash; no temporary RAM buffer is made.
+void drawUiIcon(uint8_t icon, int x, int y) {
+  if (icon >= UI_ICON_COUNT) return;
+  // RGB565 je ulozen v poradi bajtu pro TFT_eSPI.
+  // EN: RGB565 is stored in the byte order expected by TFT_eSPI.
+  tft.setSwapBytes(true);
+  tft.pushImage(x, y, UI_ICON_SIZE, UI_ICON_SIZE, UI_ICON_DATA[icon]);
+  tft.setSwapBytes(false);
+}
+
 void card(int x, int y, int w, int h, int icon, uint16_t iconCol,
           const char* title, const char* l1, const char* l2) {
-  tft.fillRoundRect(x, y, w, h, 8, C_CARD);
-  tft.drawRoundRect(x, y, w, h, 8, C_LINE);
+  uiPanel(x, y, w, h);
 
-  // podklad pod ikonu / backdrop behind the icon
-  tft.fillRoundRect(x + 6, y + 6, 38, 38, 6, C_BG);
-  int ix = x + 10, iy = y + 10;
-  switch (icon) {
-    case 0: icoInverter(ix, iy, iconCol); break;
-    case 1: icoSunCloud(ix, iy, iconCol); break;
-    case 2: icoPlug(ix, iy, iconCol);     break;
-    case 3: icoBattery(ix, iy, iconCol);  break;
-    case 4: icoHouse(ix, iy, iconCol);    break;
-    case 5: icoTemp(ix, iy, iconCol);     break;
-    case 6: icoWind(ix, iy, iconCol);     break;
-    case 7: icoCloud(ix, iy, iconCol);    break;
-    case 8: icoBolt(ix, iy, iconCol);     break;
-    case 9: icoClock(ix, iy, iconCol);    break;
-    case 10: icoPanel(ix, iy, iconCol);   break;
-    case 11: icoPylon(ix, iy, iconCol);   break;
-  }
+  drawUiIcon((uint8_t)icon, x + 6, y + 6);
 
   int tx = x + 50;
   tft.setTextColor(C_TXT, C_CARD);
@@ -832,24 +968,14 @@ void card(int x, int y, int w, int h, int icon, uint16_t iconCol,
 // EN: tile with a long value - the value uses the smaller Czech font
 void statBoxSmall(int x, int y, int w, int h, const char* label,
                   const char* value, uint16_t col) {
-  tft.fillRoundRect(x, y, w, h, 6, C_CARD);
-  tft.drawRoundRect(x, y, w, h, 6, col);
-  tft.setTextColor(C_DIM, C_CARD);
-  tCz(label, x + 7, y + 4);
-  tft.setTextColor(col, C_CARD);
-  tCz(value, x + 7, y + 24);
+  uiStat(x, y, w, h, label, value, col, true);
 }
 
 // mala dlazdice: popisek nahore, hodnota dole
 // EN: small tile: label on top, value below
 void statBox(int x, int y, int w, int h, const char* label,
           const char* value, uint16_t col) {
-  tft.fillRoundRect(x, y, w, h, 6, C_CARD);
-  tft.drawRoundRect(x, y, w, h, 6, col);
-  tft.setTextColor(C_DIM, C_CARD);
-  tCz(label, x + 7, y + 4);
-  tft.setTextColor(col, C_CARD);
-  tAs(value, x + 7, y + 20, 4);
+  uiStat(x, y, w, h, label, value, col, false);
 }
 
 // ===========================================================================
@@ -888,27 +1014,39 @@ const char* fmtPower(float w) {
   return fbuf[fidx];
 }
 
-// Castka vzdy pouziva aktualne zvolenou menu. Vlastni formatter drzi jeden
-// argument fmt() mimo cestu a zachovava stejny kruhovy buffer.
-// EN: Money always uses the selected currency. Its own formatter keeps the
-//     one-argument fmt() contract and shares the same circular buffer.
-const char* fmtMoney(float value) {
+// Cele hodnoty oddeluje mezerou po tisicich a umi pridat jednotku.
+// EN: Whole values are grouped by thousands and can receive a unit suffix.
+const char* fmtGrouped(uint32_t value, const char* suffix = nullptr) {
   fidx = (fidx + 1) % 8;
-  snprintf(fbuf[fidx], sizeof(fbuf[fidx]), "%.0f %s", value, CFG_CURR);
+  char digits[12];
+  snprintf(digits, sizeof(digits), "%lu", (unsigned long)value);
+  int len = strlen(digits), out = 0;
+  for (int i = 0; i < len; ++i) {
+    if (i > 0 && ((len - i) % 3) == 0) fbuf[fidx][out++] = ' ';
+    fbuf[fidx][out++] = digits[i];
+  }
+  if (suffix && suffix[0]) {
+    fbuf[fidx][out++] = ' ';
+    for (int i = 0; suffix[i] && out < (int)sizeof(fbuf[fidx]) - 1; ++i)
+      fbuf[fidx][out++] = suffix[i];
+  }
+  fbuf[fidx][out] = '\0';
   return fbuf[fidx];
 }
 
+// Castka vzdy pouziva aktualne zvolenou menu a oddelovac tisicu.
+// EN: Money always uses the selected currency and a thousands separator.
+const char* fmtMoney(float value) {
+  double rounded = floor((double)value + 0.5);
+  if (rounded < 0) rounded = 0;
+  if (rounded > 4294967295.0) rounded = 4294967295.0;
+  return fmtGrouped((uint32_t)rounded, CFG_CURR);
+}
+
 const char* weatherText(int code) {
-  if (code == 0)   return TR(T_W_CLEAR);
-  if (code <= 2)   return TR(T_W_PARTLY);
-  if (code == 3)   return TR(T_W_OVERCAST);
-  if (code <= 48)  return TR(T_W_FOG);
-  if (code <= 57)  return TR(T_W_DRIZZLE);
-  if (code <= 67)  return TR(T_W_RAIN);
-  if (code <= 77)  return TR(T_W_SNOW);
-  if (code <= 82)  return TR(T_W_SHOWERS);
-  if (code <= 86)  return TR(T_W_SNOWSH);
-  return TR(T_W_STORM);
+  static const int labels[] = {T_W_CLEAR, T_W_PARTLY, T_W_OVERCAST, T_W_FOG,
+    T_W_DRIZZLE, T_W_RAIN, T_W_SNOW, T_W_SHOWERS, T_W_SNOWSH, T_W_STORM};
+  return TR(labels[weatherKind(code)]);
 }
 
 // ===========================================================================
@@ -918,7 +1056,7 @@ void scrOverview() {
   // ---- karty / cards ----
   static char invUse[24];
   snprintf(invUse, sizeof(invUse), "%s %.0f %%", TR(T_USAGE), v_load_pct);
-  card(6,    44, 150, 56, 0,  C_LOAD,  TR(T_INVERTER),
+  card(6,    44, 150, 56, UI_ICON_INVERTER, C_LOAD, TR(T_INVERTER),
        fmt("%.1f °C", i_temp), invUse);
 
   // Napeti a proud panelu. Bez mezer kolem lomitka, jinak se to do karty
@@ -930,32 +1068,31 @@ void scrOverview() {
     snprintf(pvUI, sizeof(pvUI), "%.0fV/%.1fA", i_pv_voltage, i_pv_current);
   else
     snprintf(pvUI, sizeof(pvUI), "%.1fV/%.1fA", i_pv_voltage, i_pv_current);
-  card(164,  44, 150, 56, 10, C_PV,    TR(T_SOLARPV),
+  card(164,  44, 150, 56, UI_ICON_SOLAR, C_PV, TR(T_SOLARPV),
        fmtPower(v_pv_power), pvUI);
 
   // napeti a frekvence site; bez mezer kolem lomitka, jinak se to do karty nevejde
   // EN: grid voltage and frequency; no spaces around the slash or it will not fit
   static char gridVF[24];
   snprintf(gridVF, sizeof(gridVF), "%.0fV/%.1fHz", v_grid_voltage, v_grid_freq);
-  card(6,   104, 150, 56, 11, C_GRID,  TR(T_GRID),
+  card(6,   104, 150, 56, UI_ICON_GRID, C_GRID, TR(T_GRID),
        gridVF, fmtPower(v_grid_power));
 
-  card(164, 104, 150, 56, 3,  C_BATT,  TR(T_BATTERY),
+  card(164, 104, 150, 56, UI_ICON_BATTERY, C_BATT, TR(T_BATTERY),
        fmt("%.1f V", v_batt_voltage), fmt("%.0f %%", v_soc));
 
   // proud baterie hned za procenty, zeleny pri nabijeni, cerveny pri vybijeni
   // EN: battery current right after the percentage, green charging, red discharging
   static char curBuf[16];
-  snprintf(curBuf, sizeof(curBuf), "%+.0fA",
-           v_batt_power >= 0 ? v_batt_current : -v_batt_current);
+  snprintf(curBuf, sizeof(curBuf), "%c%.0fA",
+           v_batt_power >= 0 ? '+' : '-', fabsf(v_batt_current));
   czOn();
   int wSoc = tft.textWidth(fmt("%.0f %%", v_soc));
   tft.setTextColor(v_batt_power >= 0 ? C_BATT : C_GRID, C_CARD);
   tCz(curBuf, 164 + 50 + wSoc + 8, 104 + 39);
 
   // ---- predikce vyroby na cely den / whole-day production forecast ----
-  tft.fillRoundRect(6, 164, 308, 64, 8, C_CARD);
-  tft.drawRoundRect(6, 164, 308, 64, 8, C_PV);
+  uiPanel(6, 164, 308, 64, C_PV);
 
   // nadpis vlevo, prubeh v procentech vpravo
   // EN: title on the left, progress in percent on the right
@@ -971,8 +1108,8 @@ void scrOverview() {
   //     or stored.
   static char savBuf[32];
   float savedAll = savedToday() + w_pv_remaining * CFG_PRICE;
-  snprintf(savBuf, sizeof(savBuf), "%s %.0f %s / %.0f %s",
-           TR(T_TODAY), savedToday(), CFG_CURR, savedAll, CFG_CURR);
+  snprintf(savBuf, sizeof(savBuf), "%s %s / %s",
+           TR(T_TODAY), fmtMoney(savedToday()), fmtMoney(savedAll));
   tft.setTextDatum(MC_DATUM);
   tft.setTextColor(C_BATT, C_CARD);
   tCz(savBuf, 160, 177);
@@ -1003,19 +1140,21 @@ void scrOverview() {
 
 
   // ---- pulkruhove ukazatele / half-circle gauges ----
-  halfGauge(84,  300, 62, 13, v_load_power, CFG_RANGE, C_LOAD,
+  float shownLoad = animatedGauge(GM_LOAD), shownPv = animatedGauge(GM_PV);
+  float shownGrid = animatedGauge(GM_GRID), shownBatt = animatedGauge(GM_BATT);
+  halfGauge(84,  300, 62, 13, shownLoad, CFG_RANGE, C_LOAD,
             fmtPower(v_load_power), TR(T_LOAD));
-  halfGauge(236, 300, 62, 13, v_pv_power, CFG_RANGE, C_PV,
+  halfGauge(236, 300, 62, 13, shownPv, CFG_RANGE, C_PV,
             fmtPower(v_pv_power), TR(T_SOLARPV));
-  halfGauge(84,  394, 62, 13, fabsf(v_grid_power), CFG_RANGE,
-            v_grid_power > 1 ? C_GRID : C_DIM,
+  halfGauge(84,  394, 62, 13, fabsf(shownGrid), CFG_RANGE,
+            shownGrid > 1 ? C_GRID : C_DIM,
             fmtPower(fabsf(v_grid_power)), TR(T_GRID));
   // vykon se znamenkem: kladny se nabiji, zaporny vybiji
   // EN: signed power: positive is charging, negative is discharging
-  halfGauge(236, 394, 62, 13, fabsf(v_batt_power), (CFG_RANGE / 2),
-            v_batt_power >= 0 ? C_BATT : C_GRID,
+  halfGauge(236, 394, 62, 13, fabsf(shownBatt), (CFG_RANGE / 2),
+            shownBatt >= 0 ? C_BATT : C_GRID,
             fmtSigned(v_batt_power),
-            v_batt_power >= 0 ? TR(T_BATT_CHG) : TR(T_BATT_DIS));
+            shownBatt >= 0 ? TR(T_BATT_CHG) : TR(T_BATT_DIS));
 }
 
 // ===========================================================================
@@ -1023,6 +1162,7 @@ void scrOverview() {
 // ===========================================================================
 void scrBattery() {
   const int cx = 160, cy = 208, r = 118, th = 22;
+  float shownSoc = animatedGauge(GM_SOC);
   // zeleny prstenec pri nabijeni, cerveny pri vybijeni
   // EN: green ring while charging, red while discharging
   uint16_t col = v_batt_power >= 0 ? C_BATT : C_GRID;
@@ -1031,7 +1171,7 @@ void scrBattery() {
   uint16_t numCol = v_soc < 20 ? C_GRID : col;
 
   arcRing(cx, cy, r - th, r, 180, 360, C_TRACK);
-  arcRing(cx, cy, r - th, r, 180, 180 + 180 * constrain(v_soc / 100.0f, 0.0f, 1.0f), col);
+  arcRing(cx, cy, r - th, r, 180, 180 + 180 * constrain(shownSoc / 100.0f, 0.0f, 1.0f), col);
   gaugeTicks(cx, cy, r);
 
   // Velke cislo s malym procentem vedle. Vestavene pismo 7 ma jen cislice,
@@ -1083,17 +1223,24 @@ void scrBattery() {
   statBox(6,   sy+2*(sh+sg), 150, sh, TR(T_CHARGED_TD), fmt("%.2f kWh", dayBattIn()), C_BATT);
   statBox(164, sy+2*(sh+sg), 150, sh, TR(T_DISCH_TD),   fmt("%.2f kWh", dayBattOut()), C_PV);
 
-  tft.setTextColor(C_DIM, C_BG);
-  tCz(TR(T_MIN_TODAY), 6, 396);
-  tft.setTextDatum(TR_DATUM);
-  tft.setTextColor(C_TXT, C_BG);
-  tCz(fmt("%.0f %%", (float)minSoc), 150, 396);
+  const char* minText = fmt("%.0f %%", (float)minSoc);
   // Optimisticky odhad: cela zbyvajici predikovana vyroba muze do baterie.
   float forecastSoc = v_batt_capacity > 0 ? min(100.0f, v_soc + w_pv_remaining / v_batt_capacity * 100.0f) : v_soc;
-  tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_SOC_EVENING), 166, 396);
+  const char* eveningText = fmt("%.0f %%", forecastSoc);
+
+  // Prave sloupce jsou zarovnane podle skutecne sirky hodnot. Popisek
+  // vecerniho SOC proto nikdy nezasahne do procenta ani do leveho sloupce.
+  czOn();
+  int eveningValueLeft = 314 - tft.textWidth(eveningText);
+  int eveningLabelRight = eveningValueLeft - 8;
+
+  tft.setTextColor(C_DIM, C_BG);
+  tCz(TR(T_MIN_SHORT), 6, 396);
   tft.setTextDatum(TR_DATUM);
-  tft.setTextColor(C_BATT, C_BG); tCz(fmt("%.0f %%", forecastSoc), 306, 396);
+  tft.setTextColor(C_TXT, C_BG);
+  tCz(minText, 150, 396);
+  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_SOC_EVENING), eveningLabelRight, 396);
+  tft.setTextColor(C_BATT, C_BG); tCz(eveningText, 314, 396);
   tft.setTextDatum(TL_DATUM);
 }
 
@@ -1101,7 +1248,8 @@ void scrBattery() {
 // OBRAZOVKA 2 - SOLAR / SCREEN 2 - SOLAR
 // ===========================================================================
 void scrSolar() {
-  halfGauge(160, 160, 100, 20, v_pv_power, CFG_RANGE, C_PV,
+  float shownPv = animatedGauge(GM_PV);
+  halfGauge(160, 160, 100, 20, shownPv, CFG_RANGE, C_PV,
             fmtPower(v_pv_power), TR(T_PV_NOW));
 
   // prubeh vyroby za den / production progress over the day
@@ -1134,11 +1282,12 @@ void scrSolar() {
 // OBRAZOVKA 3 - SIT A ZATEZ / SCREEN 3 - GRID AND LOAD
 // ===========================================================================
 void scrGridLoad() {
-  halfGauge(84,  150, 68, 15, fabsf(v_grid_power), CFG_RANGE,
-            v_grid_power > 1 ? C_GRID : C_DIM,
+  float shownGrid = animatedGauge(GM_GRID), shownLoad = animatedGauge(GM_LOAD);
+  halfGauge(84,  150, 68, 15, fabsf(shownGrid), CFG_RANGE,
+            shownGrid > 1 ? C_GRID : C_DIM,
             fmtPower(fabsf(v_grid_power)),
-            v_grid_power > 0 ? TR(T_GRID_IMP) : TR(T_GRID_NONE));
-  halfGauge(236, 150, 68, 15, v_load_power, CFG_RANGE, C_LOAD,
+            shownGrid > 0 ? TR(T_GRID_IMP) : TR(T_GRID_NONE));
+  halfGauge(236, 150, 68, 15, shownLoad, CFG_RANGE, C_LOAD,
             fmtPower(v_load_power), TR(T_HOUSE_LOAD));
 
   // zatizeni menice / inverter load
@@ -1185,12 +1334,8 @@ void scrWeather() {
 
   // velka karta s aktualnim pocasim, obsah na stred
   // EN: large card with the current weather, content centred
-  tft.fillRoundRect(6, 48, 308, 92, 8, C_CARD);
-  tft.drawRoundRect(6, 48, 308, 92, 8, C_WEATH);
-
-  if (w_cloud < 25)      icoSun(28, 74, C_PV);
-  else if (w_cloud < 70) icoSunCloud(28, 74, C_DIM);
-  else                   icoCloud(28, 74, C_DIM);
+  uiPanel(6, 48, 308, 92);
+  weatherIcon(18, 64, code, w_is_day <= 0.5f);
 
   tft.setTextDatum(MC_DATUM);
   tft.setTextColor(C_TXT, C_CARD);
@@ -1216,8 +1361,24 @@ void scrWeather() {
   tCz(stateBuf, 190, 124);
   tft.setTextDatum(TL_DATUM);
 
-  halfGauge(160, 240, 82, 17, w_cloud, 100, C_DIM,
+  float shownCloud = animatedGauge(GM_CLOUD);
+  halfGauge(160, 213, 62, 13, shownCloud, 100, C_DIM,
             fmt("%.0f %%", w_cloud), TR(T_CLOUDS));
+
+  // Exact linear day/night ratio; unlike bar(), a zero share stays zero.
+  int dayLen = sunDayMinutes;
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_PV, C_BG); tCz(TR(T_DAY), 48, 177);
+  tCz(dayLen >= 0 ? fmt("%.0f %%", dayPercent(dayLen)) : "--", 48, 198);
+  tft.setTextColor(C_LOAD, C_BG); tCz(TR(T_NIGHT), 272, 177);
+  tCz(dayLen >= 0 ? fmt("%.0f %%", 100 - dayPercent(dayLen)) : "--", 272, 198);
+  tft.setTextDatum(TL_DATUM);
+  tft.fillRoundRect(12, 242, 296, 12, 6, C_LINE);
+  if (dayLen >= 0) {
+    int dayWidth = (int)((int32_t)dayLen * 292 / 1440);
+    tft.fillRect(14, 245, dayWidth, 6, C_PV);
+    tft.fillRect(14 + dayWidth, 245, 292 - dayWidth, 6, C_LOAD);
+  }
 
   const int sy = 262, sh = 48, sg = 5;
   statBox(6,   sy,           150, sh, TR(T_WIND),    fmt("%.1f km/h", w_wind), C_WEATH);
@@ -1227,18 +1388,18 @@ void scrWeather() {
 
   // delka dne a noci se odvodi z vychodu a zapadu
   // EN: day and night length follow from sunrise and sunset
-  int dayLen = (sunRise >= 0 && sunSet > sunRise) ? sunSet - sunRise : -1;
   int nightLen = dayLen >= 0 ? 1440 - dayLen : -1;
   statBox(6,   sy+2*(sh+sg), 150, sh, TR(T_DAY_LEN),   hhmm(dayLen), C_PV);
-  statBox(164, sy+2*(sh+sg), 150, sh, TR(T_NIGHT_LEN), hhmm(nightLen), C_DIM);
+  statBox(164, sy+2*(sh+sg), 150, sh, TR(T_NIGHT_LEN), hhmm(nightLen), C_LOAD);
 }
 
 // ===========================================================================
 // OBRAZOVKA 5 - MENIC / SCREEN 5 - INVERTER
 // ===========================================================================
 void scrInverter() {
-  uint16_t tc = i_temp > 70 ? C_GRID : (i_temp > 55 ? C_PV : C_BATT);
-  halfGaugeU(160, 160, 100, 20, i_temp, 100, tc,
+  float shownTemp = animatedGauge(GM_TEMP);
+  uint16_t tc = shownTemp > 70 ? C_GRID : (shownTemp > 55 ? C_PV : C_BATT);
+  halfGaugeU(160, 160, 100, 20, shownTemp, 100, tc,
              fmt("%.1f", i_temp), "°C", TR(T_INV_TEMP));
 
   if (i_temp > CFG_ALERT_TEMP) {
@@ -1321,6 +1482,25 @@ void plotDaySoc(int gy, int gh, uint16_t col) {
   }
 }
 
+// Prerusovana cara ukazuje optimisticky stav do zapadu slunce: cela zbyvajici
+// predikovana energie FVE by mohla nabit baterii.
+void plotSocForecast(int gy, int gh) {
+  if (curSlot < 0 || v_batt_capacity <= 0 || sunSet <= 0) return;
+  int endSlot = constrain(sunSet / 10, 0, DAY_N - 1);
+  if (endSlot <= curSlot) return;
+  float endSoc = min(100.0f, v_soc + w_pv_remaining / v_batt_capacity * 100.0f);
+  int x0 = PLOT_X0 + curSlot * PLOT_STEP;
+  int y0 = gy + gh - 1 - (int)(v_soc * (gh - 2) / 100.0f);
+  int x1 = PLOT_X0 + endSlot * PLOT_STEP;
+  int y1 = gy + gh - 1 - (int)(endSoc * (gh - 2) / 100.0f);
+  for (int x = x0; x < x1; x += 5) {
+    int xe = min(x + 2, x1);
+    int ya = y0 + (int)((long)(y1 - y0) * (x - x0) / (x1 - x0));
+    int yb = y0 + (int)((long)(y1 - y0) * (xe - x0) / (x1 - x0));
+    tft.drawLine(x, ya, xe, yb, C_PV);
+  }
+}
+
 // Graf hodnot v desetinach stupne s pevnym rozsahem. Pevna osa neumozni,
 // aby stejna teplota vypadala pri dalsim dni jako jina.
 // EN: Plot tenths of a degree on a fixed range, so equal temperatures keep
@@ -1389,6 +1569,59 @@ void timeAxis(int y) {
   tft.setTextDatum(TL_DATUM);
 }
 
+int nearestGraphSlot(int wanted) {
+  wanted = constrain(wanted, 0, DAY_N - 1);
+  if (dHas[wanted]) return wanted;
+  for (int distance = 1; distance < DAY_N; ++distance) {
+    int left = wanted - distance, right = wanted + distance;
+    if (left >= 0 && dHas[left]) return left;
+    if (right < DAY_N && dHas[right]) return right;
+  }
+  return -1;
+}
+
+// Kurzor se popise na opacne strane grafu, aby ramecek nezakryl vybrany bod.
+// EN: The label is placed opposite the cursor so it does not cover the point.
+void graphCursorOverlay(int graphId, int gy, int gh, const char* label,
+                        int y1, uint16_t col1, int y2, uint16_t col2) {
+  if (!graphCursor.active || graphCursor.screenId != screen ||
+      graphCursor.graphId != graphId || graphCursor.slot < 0) return;
+  int x = PLOT_X0 + graphCursor.slot * PLOT_STEP;
+  tft.drawFastVLine(x, gy + 1, gh - 2, C_TXT);
+  tft.fillCircle(x, y1, 3, col1);
+  if (y2 >= 0) tft.fillCircle(x, y2, 3, col2);
+
+  czOn();
+  int boxW = min(GR_WIDTH - 8, tft.textWidth(label) + 12);
+  int boxX = x > GR_L + GR_WIDTH / 2 ? GR_L + 4 : GR_L + GR_WIDTH - boxW - 4;
+  tft.fillRoundRect(boxX, gy + 4, boxW, 22, 4, C_CARD);
+  tft.drawRoundRect(boxX, gy + 4, boxW, 22, 4, C_TXT);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_TXT, C_CARD);
+  tCz(label, boxX + boxW / 2, gy + 15);
+  tft.setTextDatum(TL_DATUM);
+}
+
+bool selectGraphPoint(int x, int y) {
+  if (x < GR_L || x >= GR_L + GR_WIDTH) return false;
+  int graphId = -1;
+  if (screen == SCR_GRAPHS) {
+    if (y >= 68 && y < 158) graphId = 0;
+    else if (y >= 202 && y < 292) graphId = 1;
+    else if (y >= 336 && y < 396) graphId = 2;
+  } else if (screen == SCR_TEMPERATURES) {
+    if (y >= 82 && y < 202) graphId = 0;
+    else if (y >= 272 && y < 392) graphId = 1;
+  }
+  if (graphId < 0) return false;
+
+  int wanted = (x - PLOT_X0 + PLOT_STEP / 2) / PLOT_STEP;
+  int slot = nearestGraphSlot(wanted);
+  if (slot < 0) return true;
+  graphCursor = {(int8_t)screen, (int8_t)graphId, (int16_t)slot, true};
+  return true;
+}
+
 void scrGraphs() {
   if (!timeOk) {
     tft.setTextDatum(MC_DATUM);
@@ -1421,6 +1654,15 @@ void scrGraphs() {
                 fmt("%.0fk", maxPower / 2000.0f), "0");
   tft.setTextColor(C_PV, C_BG);   tCz(TR(T_PV), GR_L + 4, 160);
   tft.setTextColor(C_LOAD, C_BG); tCz(TR(T_LOAD), GR_L + 44, 160);
+  if (graphCursor.active && graphCursor.screenId == screen && graphCursor.graphId == 0) {
+    int slot = graphCursor.slot;
+    char selected[48];
+    snprintf(selected, sizeof(selected), "%02d:%02d  %d / %d W",
+             slot / 6, (slot % 6) * 10, dPv[slot], dLoad[slot]);
+    int pvY = 68 + 89 - (int)((long)constrain((int)dPv[slot], 0, maxPower) * 88 / maxPower);
+    int loadY = 68 + 89 - (int)((long)constrain((int)dLoad[slot], 0, maxPower) * 88 / maxPower);
+    graphCursorOverlay(0, 68, 90, selected, pvY, C_PV, loadY, C_LOAD);
+  }
 
   // vykon baterie kolem nuly / battery power around zero
   int maxB = 300;
@@ -1439,11 +1681,28 @@ void scrGraphs() {
                  fmt("-%.0fk", maxB / 1000.0f));
   tft.setTextColor(C_DIM, C_BG);
   tCz(TR(T_CHG_ABOVE), GR_L, 294);
+  if (graphCursor.active && graphCursor.screenId == screen && graphCursor.graphId == 1) {
+    int slot = graphCursor.slot;
+    char selected[40];
+    snprintf(selected, sizeof(selected), "%02d:%02d  %+d W",
+             slot / 6, (slot % 6) * 10, dBatt[slot]);
+    int battY = 202 + 45 - (int)((long)constrain((int)dBatt[slot], -maxB, maxB) * 43 / maxB);
+    graphCursorOverlay(1, 202, 90, selected, battY, C_BATT, -1, C_BATT);
+  }
 
   // stav nabiti / state of charge
   graphFrame(336, 60, TR(T_SOC), fmt("%.0f %%", v_soc), C_BATT);
   plotDaySoc(336, 60, C_BATT);
+  plotSocForecast(336, 60);
   yAxis(336, 60, "100", "50", "0");
+  if (graphCursor.active && graphCursor.screenId == screen && graphCursor.graphId == 2) {
+    int slot = graphCursor.slot;
+    char selected[32];
+    snprintf(selected, sizeof(selected), "%02d:%02d  %u %%",
+             slot / 6, (slot % 6) * 10, (unsigned)dSoc[slot]);
+    int socY = 336 + 59 - (int)((long)dSoc[slot] * 58 / 100);
+    graphCursorOverlay(2, 336, 60, selected, socY, C_BATT, -1, C_BATT);
+  }
 
   timeAxis(406);      // popisky 0 / 6 / 12 / 18 / 24 hodin / labels 0 / 6 / 12 / 18 / 24 hours
 }
@@ -1476,12 +1735,30 @@ void scrTemperatures() {
   graphFrame(82, 120, TR(T_INV_TEMP), fmt("%.1f °C", i_temp), C_PV);
   plotDayRange(82, 120, dInvTemp, 0, 1000, C_PV);
   yAxis(82, 120, "100", "50", "0");
+  if (graphCursor.active && graphCursor.screenId == screen && graphCursor.graphId == 0) {
+    int slot = graphCursor.slot;
+    char selected[36];
+    snprintf(selected, sizeof(selected), "%02d:%02d  %.1f °C",
+             slot / 6, (slot % 6) * 10, dInvTemp[slot] / 10.0f);
+    int value = constrain((int)dInvTemp[slot], 0, 1000);
+    int pointY = 82 + 119 - (int)((long)value * 118 / 1000);
+    graphCursorOverlay(0, 82, 120, selected, pointY, C_PV, -1, C_PV);
+  }
 
   tft.setTextColor(C_DIM, C_BG); tCz(TR(T_MIN_MAX), 6, 237);
   tft.setTextDatum(TR_DATUM); tft.setTextColor(C_WEATH, C_BG); tCz(outExt, 314, 237); tft.setTextDatum(TL_DATUM);
   graphFrame(272, 120, TR(T_OUT_TEMP), fmt("%.1f °C", w_temp), C_WEATH);
   plotDayRange(272, 120, dOutTemp, -200, 400, C_WEATH);
   yAxis(272, 120, "40", "10", "-20");
+  if (graphCursor.active && graphCursor.screenId == screen && graphCursor.graphId == 1) {
+    int slot = graphCursor.slot;
+    char selected[36];
+    snprintf(selected, sizeof(selected), "%02d:%02d  %.1f °C",
+             slot / 6, (slot % 6) * 10, dOutTemp[slot] / 10.0f);
+    int value = constrain((int)dOutTemp[slot], -200, 400);
+    int pointY = 272 + 119 - (int)((long)(value + 200) * 118 / 600);
+    graphCursorOverlay(1, 272, 120, selected, pointY, C_WEATH, -1, C_WEATH);
+  }
   timeAxis(412);
 }
 
@@ -1539,6 +1816,13 @@ void scrRuntime() {
 // ===========================================================================
 // OBRAZOVKA - HISTORIE POSLEDNICH 7 DNI / SCREEN - LAST 7 DAYS
 // ===========================================================================
+uint16_t monthWithToday(uint16_t stored, float today) {
+  if (today <= 0) return stored;
+  uint32_t add = (uint32_t)constrain(today * 10.0f, 0.0f, 65535.0f);
+  uint32_t total = (uint32_t)stored + add;
+  return total > 65535UL ? 65535U : (uint16_t)total;
+}
+
 void scrHistory() {
   // nazev obdobi vlevo, napoveda k prepinani vpravo
   // EN: period name on the left, the switching hint on the right
@@ -1574,21 +1858,33 @@ void scrHistory() {
     int idx = histRange == 2 ? i : (first + i) % HIST_DAYS;
     uint16_t pv = histRange == 2 ? hmPv[idx]   : hdPv[idx];
     uint16_t ld = histRange == 2 ? hmLoad[idx] : hdLoad[idx];
+    if (histRange == 2 && idx == lastMon) {
+      pv = monthWithToday(pv, dayPv());
+      ld = monthWithToday(ld, dayLoad());
+    }
     if (pv > maxV) maxV = pv;
     if (ld > maxV) maxV = ld;
     sPv += pv;
     sLd += ld;
-    sSv += histRange == 2 ? hmSave[idx] : hdSave[idx];
-    sBi += histRange == 2 ? hmBIn[idx]  : hdBIn[idx];
-    sBo += histRange == 2 ? hmBOut[idx] : hdBOut[idx];
+    sSv += histRange == 2 && idx == lastMon ? monthWithToday(hmSave[idx], savedToday()) : (histRange == 2 ? hmSave[idx] : hdSave[idx]);
+    sBi += histRange == 2 && idx == lastMon ? monthWithToday(hmBIn[idx], dayBattIn()) : (histRange == 2 ? hmBIn[idx] : hdBIn[idx]);
+    sBo += histRange == 2 && idx == lastMon ? monthWithToday(hmBOut[idx], dayBattOut()) : (histRange == 2 ? hmBOut[idx] : hdBOut[idx]);
   }
 
-  const int gx = 6, gy = 74, gw = 308, gh = 140;
+  const int gx = 32, gy = 74, gw = 282, gh = 140;
   tft.drawRect(gx, gy, gw, gh, C_LINE);
   for (int k = 1; k < 4; k++) {
     int y = gy + gh * k / 4;
     for (int x = gx + 3; x < gx + gw - 2; x += 6) tft.drawPixel(x, y, C_CARD);
   }
+  // Svisla stupnice v kWh pomaha porovnat vysku sloupcu.
+  // EN: A vertical kWh scale makes the bar heights easier to compare.
+  tft.setTextDatum(TR_DATUM);
+  tft.setTextColor(C_DIM, C_BG);
+  tCz(fmt("%.1f", maxV / 10.0f), gx - 4, gy + 2);
+  tCz(fmt("%.1f", maxV / 20.0f), gx - 4, gy + gh / 2);
+  tCz("0", gx - 4, gy + gh - 2);
+  tft.setTextDatum(TL_DATUM);
 
 
   // Sirka sloupce vychazi z poctu dnu. U 31 dnu zbyva na dvojici sloupcu
@@ -1607,6 +1903,10 @@ void scrHistory() {
     int idx = histRange == 2 ? i : (first + i) % HIST_DAYS;
     uint16_t pv = histRange == 2 ? hmPv[idx]   : hdPv[idx];
     uint16_t ld = histRange == 2 ? hmLoad[idx] : hdLoad[idx];
+    if (histRange == 2 && idx == lastMon) {
+      pv = monthWithToday(pv, dayPv());
+      ld = monthWithToday(ld, dayLoad());
+    }
     int label   = histRange == 2 ? idx + 1     : hdDayNum[idx];
     int x = gx + i * step;
 
@@ -1645,8 +1945,8 @@ void scrHistory() {
   // EN: The amount uses the Czech font - the ASCII font has no diacritics,
   //     so "Kc" or "zl" would not render at all.
   char sv[24];
-  snprintf(sv, sizeof(sv), "%.0f %s", sSv / 10.0f, CFG_CURR);
-  statBoxSmall(6, sy + 2 * (sh + sg), 308, sh, TR(T_SAVED), sv, C_BATT);
+  snprintf(sv, sizeof(sv), "%s", fmtMoney(sSv / 10.0f));
+  statBox(6, sy + 2 * (sh + sg), 308, sh, TR(T_SAVED), sv, C_BATT);
 }
 
 // ===========================================================================
@@ -1701,8 +2001,7 @@ void scrSavings() {
 
   for (int i = 0; i < 3; i++) {
     int ry = y + i * (rowH + 6);
-    tft.fillRoundRect(6, ry, 308, rowH, 6, C_CARD);
-    tft.drawRoundRect(6, ry, 308, rowH, 6, C_LINE);
+    uiPanel(6, ry, 308, rowH);
 
     tft.setTextColor(C_TXT, C_CARD);
     tCz(labels[i], 14, ry + 15);
@@ -1714,7 +2013,7 @@ void scrSavings() {
     tCz(fmt("%.1f kWh", ld[i]), 236, ry + 15);
 
     char b[24];
-    snprintf(b, sizeof(b), "%.0f %s", sv[i], CFG_CURR);
+    snprintf(b, sizeof(b), "%s", fmtMoney(sv[i]));
     tft.setTextColor(C_BATT, C_CARD);
     tCz(b, 306, ry + 15);
     tft.setTextDatum(TL_DATUM);
@@ -1756,7 +2055,8 @@ void scrSavings() {
   tft.setTextColor(C_DIM, C_BG);
   tCz(TR(T_SAVED), 6, gy - 21);
 
-  tft.drawRect(6, gy, 308, gh, C_LINE);
+  const int gx = 32, gw = 282;
+  tft.drawRect(gx, gy, gw, gh, C_LINE);
   if (hdCount > 0) {
     int n = hdCount < 14 ? hdCount : 14;
     int first = (hdPos - n + HIST_DAYS) % HIST_DAYS;
@@ -1765,28 +2065,142 @@ void scrSavings() {
       int idx = (first + i) % HIST_DAYS;
       if (hdSave[idx] > maxV) maxV = hdSave[idx];
     }
-    int step = 306 / n;
+    int step = gw / n;
+    tft.setTextColor(C_LINE, C_BG);
+    for (int j = 1; j < 4; ++j)
+      for (int xx = gx + 3; xx < gx + gw - 2; xx += 6)
+        tft.drawPixel(xx, gy + (gh * j) / 4, C_LINE);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextColor(C_DIM, C_BG);
+    tCz(fmt("%.0f", maxV / 10.0f), gx - 4, gy + 2);
+    tCz(fmt("%.0f", maxV / 20.0f), gx - 4, gy + gh / 2);
+    tCz("0", gx - 4, gy + gh - 2);
     tft.setTextDatum(MC_DATUM);
     for (int i = 0; i < n; i++) {
       int idx = (first + i) % HIST_DAYS;
       int hh = (int)((long)hdSave[idx] * (gh - 4) / maxV);
-      tft.fillRect(7 + i * step + 1, gy + gh - hh - 1, step - 3, hh, C_BATT);
+      tft.fillRect(gx + i * step + 1, gy + gh - hh - 1, step - 3, hh, C_BATT);
 
       // popisek dne pod sloupcem, u hustsich grafu jen kazdy druhy
       // EN: day label under the bar, every other one when the chart is dense
       if (n <= 10 || i % 2 == 0) {
         tft.setTextColor(C_DIM, C_BG);
-        tCz(fmt("%.0f", (float)hdDayNum[idx]), 7 + i * step + step / 2, gy + gh + 12);
+        tCz(fmt("%.0f", (float)hdDayNum[idx]), gx + i * step + step / 2, gy + gh + 12);
       }
+      if (savingsSelected == idx)
+        tft.drawFastVLine(gx + i * step + step / 2, gy + 1, gh - 2, C_TXT);
     }
     tft.setTextDatum(TL_DATUM);
     tft.setTextDatum(TR_DATUM);
     tft.setTextColor(C_DIM, C_BG);
-    char b[24];
-    snprintf(b, sizeof(b), "%.0f %s", maxV / 10.0f, CFG_CURR);
+    char b[32];
+    if (savingsSelected >= 0) {
+      snprintf(b, sizeof(b), "%u: %s", hdDayNum[savingsSelected],
+               fmtMoney(hdSave[savingsSelected] / 10.0f));
+      tft.setTextColor(C_BATT, C_BG);
+    } else {
+      snprintf(b, sizeof(b), "%s", fmtMoney(maxV / 10.0f));
+      tft.setTextColor(C_DIM, C_BG);
+    }
     tCz(b, 314, gy - 21);
     tft.setTextDatum(TL_DATUM);
   }
+}
+
+// Vybere sloupec úspor podle místa dotyku.
+// EN: Select a savings bar from the touch position.
+bool selectSavingsPoint(int x, int y) {
+  const int gx = 32, gw = 282, gy = 328, gh = 70;
+  if (hdCount <= 0 || x < gx || x >= gx + gw || y < gy || y >= gy + gh) return false;
+  int n = hdCount < 14 ? hdCount : 14;
+  int first = (hdPos - n + HIST_DAYS) % HIST_DAYS;
+  int step = gw / n;
+  int i = constrain((x - gx) / step, 0, n - 1);
+  savingsSelected = (int8_t)((first + i) % HIST_DAYS);
+  return true;
+}
+
+// Vybere mesic predikce podle mista dotyku.
+// EN: Select a forecast month from the touch position.
+bool selectForecastPoint(int x, int y) {
+  const int gx = 32, gw = 282, gy = 196, gh = 184;
+  if (x < gx || x >= gx + gw || y < gy || y >= gy + gh) return false;
+  int step = gw / 12;
+  forecastSelected = (int8_t)constrain((x - gx) / step, 0, 11);
+  return true;
+}
+
+// ===========================================================================
+// OBRAZOVKA - DNES A VCERA / SCREEN - TODAY AND YESTERDAY
+// ===========================================================================
+void scrCompare() {
+  float todayPv = dayPv(), todayLoad = dayLoad(), todaySave = savedToday();
+  float yPv = yesterday.valid ? yesterday.pv / 10.0f : 0;
+  float yLoad = yesterday.valid ? yesterday.load / 10.0f : 0;
+  float ySave = yesterday.valid ? yesterday.save / 10.0f : 0;
+
+  const int todayX = 205, yesterdayX = 278;
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_BATT, C_BG); tCz(TR(T_TODAY), todayX, 50);
+  tft.setTextColor(C_DIM, C_BG);  tCz(TR(T_YESTERDAY), yesterdayX, 50);
+  tft.setTextDatum(TL_DATUM);
+
+  const char* labels[3] = { TR(T_PRODUCTION), TR(T_CONSUMPT), TR(T_SAVED) };
+  float now[3] = { todayPv, todayLoad, todaySave };
+  float old[3] = { yPv, yLoad, ySave };
+  for (int i = 0; i < 3; i++) {
+    int y = 64 + i * 38;
+    uiPanel(6, y, 308, 34);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(C_TXT, C_CARD); tCz(labels[i], 62, y + 17);
+    tft.setTextColor(i == 2 ? C_BATT : (i == 0 ? C_PV : C_LOAD), C_CARD);
+    if (i == 2) tCz(fmtMoney(now[i]), todayX, y + 17); else tCz(fmt("%.1f kWh", now[i]), todayX, y + 17);
+    tft.setTextColor(C_DIM, C_CARD);
+    if (!yesterday.valid) tCz("--", yesterdayX, y + 17);
+    else if (i == 2) tCz(fmtMoney(old[i]), yesterdayX, y + 17); else tCz(fmt("%.1f kWh", old[i]), yesterdayX, y + 17);
+    tft.setTextDatum(TL_DATUM);
+  }
+
+  uiPanel(6, 182, 308, 36);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_TXT, C_CARD); tCz(TR(T_MAX_LOAD), 62, 200);
+  tft.setTextColor(C_LOAD, C_CARD); tCz(fmtPower(maxLoad), todayX, 200);
+  tft.setTextColor(C_DIM, C_CARD); tCz(yesterday.valid ? fmtPower(yesterday.maxLoad) : "--", yesterdayX, 200);
+  tft.setTextDatum(TL_DATUM);
+
+  const int gx = 6, gy = 250, gw = 308, gh = 154;
+  float top = max(max(todayPv, todayLoad), max(yPv, yLoad)); if (top < 1) top = 1;
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_COMPARE_GRAPH), SCR_W / 2, 230);
+  tft.setTextDatum(TL_DATUM);
+  tft.drawRect(gx, gy, gw, gh, C_LINE);
+  // Jemne vodici linky zlepsi odečet vysky sloupcu.
+  for (int k = 1; k < 4; k++) {
+    int y = gy + gh * k / 4;
+    for (int x = gx + 3; x < gx + gw - 2; x += 6) tft.drawPixel(x, y, C_CARD);
+  }
+  // Dva sousedni sloupce pro kazdy den: vyroba FVE a spotreba.
+  // EN: Two adjacent columns per day: photovoltaic production and consumption.
+  float values[4] = { yPv, yLoad, todayPv, todayLoad };
+  uint16_t cols[4] = { C_PV, C_LOAD, C_PV, C_LOAD };
+  const int barX[4] = { 30, 82, 188, 240 };
+  for (int i = 0; i < 4; i++) {
+    int h = (int)(values[i] * (gh - 60) / top);
+    tft.fillRect(gx + barX[i], gy + gh - h - 22, 30, h, cols[i]);
+  }
+  char oldText[20], nowText[20];
+  snprintf(oldText, sizeof(oldText), "%.1f / %.1f kWh", yPv, yLoad);
+  snprintf(nowText, sizeof(nowText), "%.1f / %.1f kWh", todayPv, todayLoad);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_YESTERDAY), gx + 79, gy + 11);
+  tft.setTextColor(C_BATT, C_BG); tCz(TR(T_TODAY), gx + 229, gy + 11);
+  tft.setTextColor(C_TXT, C_BG);
+  tAs(oldText, gx + 79, gy + 29, 2); tAs(nowText, gx + 229, gy + 29, 2);
+  tft.setTextColor(C_PV, C_BG);
+  tCz("FV", gx + 45, gy + gh - 9); tCz("FV", gx + 203, gy + gh - 9);
+  tft.setTextColor(C_LOAD, C_BG);
+  tCz(TR(T_CONSUMPT), gx + 97, gy + gh - 9); tCz(TR(T_CONSUMPT), gx + 255, gy + gh - 9);
+  tft.setTextDatum(TL_DATUM);
 }
 
 // ===========================================================================
@@ -1818,7 +2232,7 @@ void scrForecast() {
   statBoxSmall(6, 110, 150, 52, TR(T_YEAR_PLAN), fmtMoney(yearPlan), C_PV);
   statBoxSmall(164, 110, 150, 52, TR(T_SAVED), fmtMoney(yearActual), C_BATT);
 
-  const int gx = 6, gy = 196, gw = 308, gh = 184;
+  const int gx = 32, gy = 196, gw = 282, gh = 184;
   float maxV = 1;
   for (int i = 0; i < 12; i++) {
     float plan = plannedSave(i), actual = actualMonthSave(i);
@@ -1832,6 +2246,14 @@ void scrForecast() {
   tCz(fmtMoney(maxV), gx + gw, gy - 22);
   tft.setTextDatum(TL_DATUM);
   tft.drawRect(gx, gy, gw, gh, C_LINE);
+  tft.setTextDatum(TR_DATUM);
+  tft.setTextColor(C_DIM, C_BG);
+  tCz(fmt("%.0f", maxV), gx - 4, gy + 2);
+  tCz(fmt("%.0f", maxV / 2.0f), gx - 4, gy + gh / 2);
+  tCz("0", gx - 4, gy + gh - 2);
+  for (int j = 1; j < 4; ++j)
+    for (int xx = gx + 3; xx < gx + gw - 2; xx += 6)
+      tft.drawPixel(xx, gy + (gh * j) / 4, C_LINE);
 
   const int step = gw / 12;
   for (int i = 0; i < 12; i++) {
@@ -1840,13 +2262,32 @@ void scrForecast() {
     int actualH = (int)(actualMonthSave(i) * (gh - 4) / maxV);
     tft.fillRect(x + 2, gy + gh - planH - 1, 9, planH, C_PV);
     if (actualH > 0) tft.fillRect(x + 12, gy + gh - actualH - 1, 9, actualH, C_BATT);
+    if (forecastSelected == i)
+      tft.drawFastVLine(x + step / 2, gy + 1, gh - 2, C_TXT);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(C_DIM, C_BG);
     tCz(fmt("%.0f", (float)(i + 1)), x + step / 2, gy + gh + 12);
   }
+  if (forecastSelected >= 0 && forecastSelected < 12) {
+    char planBuf[18], actualBuf[18], selectedBuf[44];
+    snprintf(planBuf, sizeof(planBuf), "%s", fmtMoney(plannedSave(forecastSelected)));
+    snprintf(actualBuf, sizeof(actualBuf), "%s", fmtMoney(actualMonthSave(forecastSelected)));
+    snprintf(selectedBuf, sizeof(selectedBuf), "%d: %s / %s", forecastSelected + 1, planBuf, actualBuf);
+    // Hodnota patri dovnitr grafu, aby neprepisovala jeho nadpis a meritko.
+    // EN: Keep the value inside the chart so it does not overwrite its title or scale.
+    czOn();
+    int boxW = min(gw - 8, tft.textWidth(selectedBuf) + 12);
+    int boxX = gx + gw - boxW - 4;
+    tft.fillRoundRect(boxX, gy + 4, boxW, 22, 4, C_CARD);
+    tft.drawRoundRect(boxX, gy + 4, boxW, 22, 4, C_TXT);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(C_BATT, C_CARD);
+    tCz(selectedBuf, boxX + boxW / 2, gy + 15);
+  }
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_DIM, C_BG);
+  tCz(TR(T_PLAN_VS_ACTUAL), SCR_W / 2, 404);
   tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(C_PV, C_BG);   tCz(TR(T_PLAN), 8, 402);
-  tft.setTextColor(C_BATT, C_BG); tCz(TR(T_ACTUAL), 100, 402);
 }
 
 // ===========================================================================
@@ -1868,6 +2309,177 @@ void drawLogo(int y) {
   tft.setTextDatum(TL_DATUM);
 }
 
+// Manual payback ledger. One versioned NVS blob makes each edit atomic.
+// Amounts/energy are bounded integers; calculations use double, never API data.
+struct RoiState {
+  uint32_t version, investment, kwh;
+  uint16_t year;
+  uint8_t month, day;
+};
+RoiState roi = {1, 0, 0, 0, 1, 1};
+const uint32_t ROI_MAX = 9999999;
+const uint32_t ROI_STEPS[] = {1, 10, 100, 1000, 10000};
+uint8_t roiMoneyStep = 3, roiEnergyStep = 1, roiDatePart = 0;
+bool roiSaveFailed = false;
+
+constexpr int roiMonthDays(int year, int month) {
+  const uint8_t days[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+  if (month < 1 || month > 12) return 0;
+  return days[month-1] + (month == 2 && year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
+}
+
+constexpr bool roiValidDate(int year, int month, int day) {
+  return year >= 2000 && year <= 2199 && day >= 1 && day <= roiMonthDays(year, month);
+}
+
+constexpr int roiDayNumber(int year, int month, int day) {
+  int result = day - 1;
+  for (int y = 2000; y < year; ++y) result += 337 + roiMonthDays(y, 2);
+  for (int m = 1; m < month; ++m) result += roiMonthDays(year, m);
+  return result;
+}
+
+constexpr uint32_t roiAdjust(uint32_t value, uint32_t step, bool increase) {
+  return increase ? (step > ROI_MAX - value ? ROI_MAX : value + step)
+                  : (value < step ? 0 : value - step);
+}
+
+// Compile-time regression checks run on the same functions as the firmware.
+static_assert(roiValidDate(2024, 2, 29) && !roiValidDate(2100, 2, 29), "ROI leap years");
+static_assert(!roiValidDate(2026, 0, 1) && !roiValidDate(2026, 4, 31), "ROI invalid dates");
+static_assert(roiDayNumber(2025, 1, 1) - roiDayNumber(2024, 1, 1) == 366, "ROI leap interval");
+static_assert(roiDayNumber(2026, 9, 19) - roiDayNumber(2024, 9, 19) == 730, "ROI elapsed days");
+static_assert(roiAdjust(0, 10000, false) == 0, "ROI lower bound");
+static_assert(roiAdjust(ROI_MAX - 1, 10000, true) == ROI_MAX, "ROI upper bound");
+static_assert(roiAdjust(6000, 10, true) == 6010, "ROI manual increment");
+
+void roiLoad() {
+  RoiState stored = {};
+  if (prefs.getBytesLength("roi1") != sizeof(stored)) return;
+  if (prefs.getBytes("roi1", &stored, sizeof(stored)) != sizeof(stored)) return;
+  if (stored.version != 1 || stored.investment > ROI_MAX || stored.kwh > ROI_MAX) return;
+  if (stored.year != 0 && !roiValidDate(stored.year, stored.month, stored.day)) return;
+  roi = stored;
+}
+
+void roiButton(int x, int y, const char* label) {
+  tft.fillRoundRect(x, y, 42, 34, 5, C_LINE);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_TXT, C_LINE);
+  tCz(label, x + 21, y + 17);
+  tft.setTextDatum(TL_DATUM);
+}
+
+void roiRow(int y, const char* label, const char* value, uint32_t step) {
+  uiPanel(6, y, 308, 70);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_DIM, C_CARD);
+  tCz(label, 92, y + 14);
+  char text[32];
+  snprintf(text, sizeof(text), "%s %s", TR(T_ROI_STEP), fmtGrouped(step));
+  tCz(text, 242, y + 14);
+  roiButton(12, y + 31, "-"); roiButton(266, y + 31, "+");
+  tft.setTextDatum(MC_DATUM); tft.setTextColor(C_TXT, C_CARD);
+  tCz(value, 160, y + 51);
+  tft.setTextDatum(TL_DATUM);
+}
+
+void scrRoi() {
+  char text[48];
+  snprintf(text, sizeof(text), "%s", fmtMoney(roi.investment));
+  roiRow(46, TR(T_ROI_INV), text, ROI_STEPS[roiMoneyStep]);
+  if (roi.kwh >= 10000) snprintf(text, sizeof(text), "%.3f MWh", roi.kwh / 1000.0);
+  else snprintf(text, sizeof(text), "%s kWh", fmtGrouped(roi.kwh));
+  roiRow(120, TR(T_ROI_ENERGY), text, ROI_STEPS[roiEnergyStep]);
+  snprintf(text, sizeof(text), "%.2f %s/kWh", (double)CFG_PRICE, CFG_CURR);
+  tft.setTextDatum(MC_DATUM); tft.setTextColor(C_DIM, C_BG); tCz(text, 160, 202);
+
+  double paid = (double)roi.kwh * CFG_PRICE;
+  double remaining = fmax(0.0, (double)roi.investment - paid);
+  double fraction = roi.investment ? fmin(1.0, paid / roi.investment) : 0;
+  uiPanel(6, 214, 308, 96);
+  const int pieX = 78, pieY = 262;
+  tft.fillCircle(pieX, pieY, 40, C_LINE);
+  arcRing(pieX, pieY, 0, 40, -90, -90 + fraction * 360, C_BATT);
+  tft.fillCircle(pieX, pieY, 26, C_CARD);
+  snprintf(text, sizeof(text), "%.0f %%", fraction * 100);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_TXT, C_CARD); tCz(text, pieX, pieY);
+  tft.setTextColor(C_DIM, C_CARD);
+  tCz(TR(T_ROI_PAID), 210, 230); tCz(TR(T_REMAINING), 210, 275);
+  snprintf(text, sizeof(text), "%s", fmtMoney(paid));
+  tft.setTextColor(C_BATT, C_CARD); tCz(text, 210, 251);
+  snprintf(text, sizeof(text), "%s", fmtMoney(remaining));
+  tft.setTextColor(C_TXT, C_CARD); tCz(text, 210, 296);
+
+  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_ROI_START), 160, 320);
+  roiButton(12, 332, "-"); roiButton(266, 332, "+");
+  // Datum se po vykresleni tlacitek vraci na TL; datumove hodnoty musi byt MC.
+  // EN: Buttons restore TL datum; date values must use MC datum to stay centred.
+  tft.setTextDatum(MC_DATUM);
+  if (roi.year == 0) { tft.setTextColor(C_TXT, C_BG); tCz(TR(T_ROI_DATE), 160, 349); }
+  else for (int p = 0; p < 3; ++p) {
+    snprintf(text, sizeof(text), "%02u", p == 0 ? roi.day : p == 1 ? roi.month : roi.year);
+    tft.setTextColor(p == roiDatePart ? C_PV : C_TXT, C_BG);
+    tCz(text, 86 + p * 74, 349);
+  }
+  const char* estimate = TR(T_ROI_WAIT);
+  struct tm now;
+  if (roi.investment && remaining == 0) estimate = TR(T_ROI_DONE);
+  else if (roi.year && roi.investment && paid > 0 && getLocalTime(&now, 5) &&
+           roiValidDate(now.tm_year + 1900, now.tm_mon + 1, now.tm_mday)) {
+    int days = roiDayNumber(now.tm_year + 1900, now.tm_mon + 1, now.tm_mday) - roiDayNumber(roi.year, roi.month, roi.day);
+    if (days > 0) {
+      double years = remaining / paid * days / 365.2425;
+      if (years > 999) snprintf(text, sizeof(text), ">999 %s", TR(T_ROI_YEARS));
+      else snprintf(text, sizeof(text), "%.1f %s", years, TR(T_ROI_YEARS));
+      estimate = text;
+    }
+  }
+  uiPanel(6, 374, 308, 42, roiSaveFailed ? C_GRID : C_PV);
+  const char* estimateValue = roiSaveFailed ? TR(T_ROI_SAVE_ERR) : estimate;
+  // Nadpis zustava vlevo, samotny odhad je velkym fontem uprostred.
+  // EN: The label stays left; the estimate itself uses a large centred font.
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(C_DIM, C_CARD); tCz(TR(T_ROI_EST), 14, 381);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(roiSaveFailed ? C_GRID : C_PV, C_CARD);
+  if (roiSaveFailed) tCz(estimateValue, 235, 400);
+  else tAs(estimateValue, 235, 400, 4);
+  tft.setTextDatum(TL_DATUM);
+}
+
+void roiTouch(int x, int y) {
+  RoiState before = roi;
+  if ((y >= 46 && y < 116) || (y >= 120 && y < 190)) {
+    bool money = y < 116;
+    int rowY = money ? 46 : 120;
+    uint8_t& stepIndex = money ? roiMoneyStep : roiEnergyStep;
+    uint32_t& value = money ? roi.investment : roi.kwh;
+    if (y < rowY + 31) stepIndex = (stepIndex + 1) % 5;
+    else if (x >= 12 && x < 54) value = roiAdjust(value, ROI_STEPS[stepIndex], false);
+    else if (x >= 266 && x < 308) value = roiAdjust(value, ROI_STEPS[stepIndex], true);
+  } else if (y >= 332 && y < 366) {
+    if (!roi.year) {
+      struct tm now;
+      if (getLocalTime(&now, 5) && roiValidDate(now.tm_year + 1900, now.tm_mon + 1, now.tm_mday)) {
+        roi.year = now.tm_year + 1900; roi.month = now.tm_mon + 1; roi.day = now.tm_mday;
+      } else { roi.year = 2026; roi.month = roi.day = 1; }
+    } else if (x >= 54 && x < 266) roiDatePart = min(2, (x - 54) / 74);
+    else if ((x >= 12 && x < 54) || (x >= 266 && x < 308)) {
+      int delta = x < 54 ? -1 : 1;
+      if (roiDatePart == 0) roi.day = constrain((int)roi.day + delta, 1, roiMonthDays(roi.year, roi.month));
+      if (roiDatePart == 1) roi.month = constrain((int)roi.month + delta, 1, 12);
+      if (roiDatePart == 2) roi.year = constrain((int)roi.year + delta, 2000, 2199);
+      roi.day = min((int)roi.day, roiMonthDays(roi.year, roi.month));
+    }
+  }
+  if (memcmp(&before, &roi, sizeof(roi)) != 0) {
+    roiSaveFailed = prefs.putBytes("roi1", &roi, sizeof(roi)) != sizeof(roi);
+    if (roiSaveFailed) roi = before;
+  }
+}
+
 void scrAbout() {
   drawLogo(50);
 
@@ -1881,27 +2493,21 @@ void scrAbout() {
   statBoxSmall(164, sy,       150, sh, TR(T_FIRMWARE), "v" FW_VERSION, C_PV);
   statBoxSmall(6,   sy+sh+sg, 150, sh, "Flash",
                fmt("%.0f MB", ESP.getFlashChipSize() / 1048576.0f), C_TXT);
-  statBoxSmall(164, sy+sh+sg, 150, sh, TR(T_FREE_MEM),
-               fmt("%.0f kB", ESP.getFreeHeap() / 1024.0f), C_TXT);
+  char memoryText[28];
+  snprintf(memoryText, sizeof(memoryText), "%lu kB / %lu",
+           (unsigned long)(ESP.getFreeHeap() / 1024),
+           (unsigned long)prefs.freeEntries());
+  statBoxSmall(164, sy+sh+sg, 150, sh, "RAM / NVS", memoryText, C_TXT);
 
   int y = sy + 2 * (sh + sg) + 6;
-  tft.fillRoundRect(6, y, 308, 98, 8, C_CARD);
-  tft.drawRoundRect(6, y, 308, 98, 8, C_WEATH);
-
-  tft.setTextColor(C_TXT, C_CARD);
-  tCz(TR(T_CONTACT), 14, y + 6);
-
-  // popisek vlevo, hodnota za nim - vejde se na jeden radek
-  // EN: label on the left, value after it - fits on a single line
-  tft.setTextColor(C_DIM, C_CARD);
-  tCz("Web",    14, y + 28);
-  tCz("GitHub", 14, y + 50);
-  tCz("E-mail", 14, y + 72);
-
+  uiPanel(6, y, 308, 96);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_TXT, C_CARD); tCz(TR(T_CONTACT), 160, y + 14);
   tft.setTextColor(C_WEATH, C_CARD);
-  tCz("www.pcprovas.cz",        82, y + 28);
-  tCz("github.com/tomas-cabaj", 82, y + 50);
-  tCz("t.cabaj@email.cz",       82, y + 72);
+  tCz("Web  www.pcprovas.cz", 160, y + 37);
+  tCz("GitHub  github.com/tomas-cabaj", 160, y + 59);
+  tCz("E-mail  t.cabaj@email.cz", 160, y + 81);
+  tft.setTextDatum(TL_DATUM);
 }
 
 // ===========================================================================
@@ -1983,6 +2589,8 @@ void cfgClamp() {
   if (iAlertTemp >= OPT_N(OPT_ALERT_TEMP)) iAlertTemp = 3;
   if (iStale     >= OPT_N(OPT_STALE))      iStale = 1;
   if (iErrLed    >= OPT_N(OPT_ERR_LED))    iErrLed = 1;
+  if (iGridLimit >= OPT_N(OPT_GRID_LIMIT)) iGridLimit = 3;
+  if (iGridTime  >= OPT_N(OPT_GRID_TIME))  iGridTime = 3;
 }
 
 void cfgLoad() {
@@ -2001,6 +2609,8 @@ void cfgLoad() {
   iAlertTemp = prefs.getUChar("iATemp", 3);
   iStale     = prefs.getUChar("iStale", 1);
   iErrLed    = prefs.getUChar("iELed", 1);
+  iGridLimit = prefs.getUChar("iGridL", 3);
+  iGridTime  = prefs.getUChar("iGridT", 3);
   cfgClamp();
 }
 
@@ -2020,6 +2630,8 @@ void cfgSave() {
   prefs.putUChar("iATemp", iAlertTemp);
   prefs.putUChar("iStale", iStale);
   prefs.putUChar("iELed",  iErrLed);
+  prefs.putUChar("iGridL", iGridLimit);
+  prefs.putUChar("iGridT", iGridTime);
 }
 
 // text hodnoty pro dany radek / value text for the given row
@@ -2059,15 +2671,12 @@ int cfgLabel(int row) {
 void scrSettings2() {
   for (int i = 0; i < S2_ROWS; i++) {
     int y = S2_Y0 + i * S2_STEP;
-    tft.fillRoundRect(6, y, 308, S2_H, 6, C_CARD);
-    tft.drawRoundRect(6, y, 308, S2_H, 6, i == 0 ? C_PV : C_LINE);
-
+    uiPanel(6, y, 308, S2_H);
+    tft.setTextDatum(MC_DATUM);
     tft.setTextColor(C_TXT, C_CARD);
-    tCz(TR(cfgLabel(i)), 14, y + 8);
-
-    tft.setTextDatum(TR_DATUM);
+    tCz(TR(cfgLabel(i)), 100, y + S2_H / 2);
     tft.setTextColor(C_PV, C_CARD);
-    tCz(cfgValue(i), 306, y + 8);
+    tCz(cfgValue(i), 255, y + S2_H / 2);
     tft.setTextDatum(TL_DATUM);
   }
 }
@@ -2102,10 +2711,10 @@ void cfgNext(int row) {
   drawScreen();
 }
 
-#define S3_Y0  64
-#define S3_H   54
-#define S3_STEP 62
-#define S3_ROWS 4
+#define S3_Y0  48
+#define S3_H   43
+#define S3_STEP 48
+#define S3_ROWS 6
 
 const char* errLedName() {
   switch (CFG_ERR_LED) {
@@ -2122,7 +2731,9 @@ const char* cfg3Value(int row) {
     case 0: return fmt("%.0f %%", (float)CFG_ALERT_SOC);
     case 1: return fmt("%.0f °C", (float)CFG_ALERT_TEMP);
     case 2: return fmt("%.0f min", CFG_STALE / 60000.0f);
-    default: return errLedName();
+    case 3: return errLedName();
+    case 4: return CFG_GRID_LIMIT == 0 ? TR(T_OFF) : fmt("%.1f kW", CFG_GRID_LIMIT / 1000.0f);
+    default: return fmt("%.0f min", (float)CFG_GRID_TIME);
   }
 }
 
@@ -2131,19 +2742,24 @@ int cfg3Label(int row) {
     case 0: return T_ALERT_SOC_LIMIT;
     case 1: return T_ALERT_TEMP_LIMIT;
     case 2: return T_ALERT_OFFLINE;
-    default: return T_ERR_LED;
+    case 3: return T_ERR_LED;
+    case 4: return T_GRID_LIMIT;
+    default: return T_GRID_TIME;
   }
 }
 
 void scrSettings3() {
   for (int i = 0; i < S3_ROWS; i++) {
     int y = S3_Y0 + i * S3_STEP;
-    tft.fillRoundRect(6, y, 308, S3_H, 6, C_CARD);
-    tft.drawRoundRect(6, y, 308, S3_H, 6, C_LINE);
-    tft.setTextColor(C_TXT, C_CARD); tCz(TR(cfg3Label(i)), 14, y + 9);
-    tft.setTextDatum(TR_DATUM); tft.setTextColor(C_PV, C_CARD); tCz(cfg3Value(i), 306, y + 9); tft.setTextDatum(TL_DATUM);
+    uiPanel(6, y, 308, S3_H);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(C_TXT, C_CARD); tCz(TR(cfg3Label(i)), 100, y + S3_H / 2);
+    tft.setTextColor(C_PV, C_CARD); tCz(cfg3Value(i), 255, y + S3_H / 2);
+    tft.setTextDatum(TL_DATUM);
   }
-  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_TAP_HINT), 6, 342);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_TAP_HINT), SCR_W / 2, 356);
+  tft.setTextDatum(TL_DATUM);
 }
 
 void cfg3Next(int row) {
@@ -2151,7 +2767,9 @@ void cfg3Next(int row) {
     case 0: iAlertSoc = (iAlertSoc + 1) % OPT_N(OPT_ALERT_SOC); break;
     case 1: iAlertTemp = (iAlertTemp + 1) % OPT_N(OPT_ALERT_TEMP); break;
     case 2: iStale = (iStale + 1) % OPT_N(OPT_STALE); break;
-    default: iErrLed = (iErrLed + 1) % OPT_N(OPT_ERR_LED); updateLoadLed(); break;
+    case 3: iErrLed = (iErrLed + 1) % OPT_N(OPT_ERR_LED); updateLoadLed(); break;
+    case 4: iGridLimit = (iGridLimit + 1) % OPT_N(OPT_GRID_LIMIT); break;
+    default: iGridTime = (iGridTime + 1) % OPT_N(OPT_GRID_TIME); break;
   }
   cfgSave(); drawScreen();
 }
@@ -2164,17 +2782,20 @@ void scrErrors() {
     for (int i = 0; i < shown; i++) {
       ErrorEntry& e = errorLog[(errPos + ERR_LOG_N - 1 - i) % ERR_LOG_N];
       int y = 50 + i * 56;
-      tft.fillRoundRect(6, y, 308, 50, 6, C_CARD);
+      uiPanel(6, y, 308, 50);
+      tft.setTextDatum(MC_DATUM);
       tft.setTextColor(e.type == ERR_SOC || e.type == ERR_TEMP ? C_GRID : C_PV, C_CARD);
-      tCz(errorName(e.type), 14, y + 5);
+      tCz(errorName(e.type), 160, y + 13);
       char buf[38];
-      if (e.hour < 24 && e.durationMin > 0) snprintf(buf, sizeof(buf), "%02u:%02u  %u min / %u", e.hour, e.minute, e.durationMin, e.count);
+      if (e.hour < 24 && e.endHour < 24) snprintf(buf, sizeof(buf), "%02u:%02u-%02u:%02u  %u min / %u", e.hour, e.minute, e.endHour, e.endMinute, e.durationMin, e.count);
+      else if (e.hour < 24 && e.durationMin > 0) snprintf(buf, sizeof(buf), "%02u:%02u  %u min / %u", e.hour, e.minute, e.durationMin, e.count);
       else if (e.hour < 24) snprintf(buf, sizeof(buf), "%02u:%02u  %s %u", e.hour, e.minute, TR(T_FAILURES), e.count);
       else snprintf(buf, sizeof(buf), "%s %u", TR(T_FAILURES), e.count);
-      tft.setTextColor(C_DIM, C_CARD); tCz(buf, 14, y + 27);
+      tft.setTextColor(C_DIM, C_CARD); tCz(buf, 160, y + 36);
+      tft.setTextDatum(TL_DATUM);
     }
   }
-  tft.fillRoundRect(6, 354, 308, 50, 6, C_CARD); tft.drawRoundRect(6, 354, 308, 50, 6, C_GRID);
+  uiPanel(6, 354, 308, 50, C_GRID);
   tft.setTextDatum(MC_DATUM); tft.setTextColor(C_GRID, C_CARD); tCz(TR(T_CLEAR_ERRORS), 160, 379); tft.setTextDatum(TL_DATUM);
 }
 
@@ -2186,8 +2807,10 @@ void scrErrors() {
 #define SET_BTN_W  150
 #define SET_BTN_X    6         // vypis hodnot / value dump
 #define SET_BT2_X  164         // test spojeni / link test
-#define SET_BT3_Y  342         // sken site, na celou sirku / network scan, full width
+#define SET_BT3_Y  342         // restart zarizeni / device restart
 #define SET_BT3_H   42
+#define SET_BT4_X    6
+uint32_t restartArmedAt = 0;
 
 void scrSettings() {
   const int sh = 50, sg = 6;
@@ -2200,11 +2823,7 @@ void scrSettings() {
   y += sh + sg;
 
   statBox(6,   y, 150, sh, TR(T_SIGNAL),   fmt("%.0f dBm", (float)WiFi.RSSI()), C_TXT);
-  statBox(164, y, 150, sh, TR(T_UPTIME), uptimeText(), C_TXT);
-  y += sh + sg;
-
-  statBox(6,   y, 150, sh, TR(T_FREE_MEM), fmt("%.0f kB", ESP.getFreeHeap() / 1024.0f), C_TXT);
-  statBox(164, y, 150, sh, "Firmware",         "v" FW_VERSION, C_TXT);
+  statBoxSmall(164, y, 150, sh, TR(T_UPTIME), uptimeText(), C_TXT);
   y += sh + sg;
 
   statBoxSmall(6,   y, 150, sh, TR(T_WIFI_NET), ssid, C_DIM);
@@ -2212,8 +2831,7 @@ void scrSettings() {
 
   // tlacitko pro vypis vsech hodnot do Serialu
   // EN: button that dumps every value to Serial
-  tft.fillRoundRect(SET_BTN_X, SET_BTN_Y, SET_BTN_W, SET_BTN_H, 8, C_CARD);
-  tft.drawRoundRect(SET_BTN_X, SET_BTN_Y, SET_BTN_W, SET_BTN_H, 8, C_WEATH);
+  uiPanel(SET_BTN_X, SET_BTN_Y, SET_BTN_W, SET_BTN_H, C_WEATH);
   tft.setTextDatum(MC_DATUM);
   tft.setTextColor(C_WEATH, C_CARD);
   tCz(TR(T_DUMP), SET_BTN_X + SET_BTN_W / 2, SET_BTN_Y + 16);
@@ -2221,18 +2839,16 @@ void scrSettings() {
   tCz(TR(T_TO_SERIAL), SET_BTN_X + SET_BTN_W / 2, SET_BTN_Y + 34);
 
   // tlacitko pro test sitoveho spojeni / button for the network link test
-  tft.fillRoundRect(SET_BT2_X, SET_BTN_Y, SET_BTN_W, SET_BTN_H, 8, C_CARD);
-  tft.drawRoundRect(SET_BT2_X, SET_BTN_Y, SET_BTN_W, SET_BTN_H, 8, C_PV);
+  uiPanel(SET_BT2_X, SET_BTN_Y, SET_BTN_W, SET_BTN_H, C_PV);
   tft.setTextColor(C_PV, C_CARD);
   tCz(TR(T_TEST_CONN), SET_BT2_X + SET_BTN_W / 2, SET_BTN_Y + 16);
   tft.setTextColor(C_DIM, C_CARD);
   tCz(TR(T_TGT_PORTS), SET_BT2_X + SET_BTN_W / 2, SET_BTN_Y + 34);
 
-  // tlacitko pro sken cele podsite / button for scanning the whole subnet
-  tft.fillRoundRect(6, SET_BT3_Y, 308, SET_BT3_H, 8, C_CARD);
-  tft.drawRoundRect(6, SET_BT3_Y, 308, SET_BT3_H, 8, C_LOAD);
-  tft.setTextColor(C_LOAD, C_CARD);
-  tCz(TR(T_NET_SCAN), SCR_W / 2, SET_BT3_Y + 21);
+  // Chraneny restart zarizeni / guarded device restart
+  uiPanel(SET_BT4_X, SET_BT3_Y, 308, SET_BT3_H, C_GRID);
+  tft.setTextColor(C_GRID, C_CARD);
+  tCz(TR(T_RESTART), SCR_W / 2, SET_BT3_Y + 21);
   tft.setTextDatum(TL_DATUM);
 
   // stav posledniho vypisu / status of the last dump
@@ -2258,8 +2874,8 @@ void computeSun(int yday, int tzMinutes) {
   float cosH = (sinf(RAD * -0.83f) - sinf(RAD * GEO_LAT) * sinf(RAD * decl)) /
                (cosf(RAD * GEO_LAT) * cosf(RAD * decl));
 
-  if (cosH > 1.0f)  { sunRise = sunSet = -1; return; }   // polarni noc / polar night
-  if (cosH < -1.0f) { sunRise = 0; sunSet = 1439; return; }  // polarni den / polar day
+  if (cosH > 1.0f)  { sunRise = sunSet = -1; sunDayMinutes = 0; return; }   // polarni noc / polar night
+  if (cosH < -1.0f) { sunRise = 0; sunSet = 1439; sunDayMinutes = 1440; return; }  // polarni den / polar day
 
   // polovina delky dne ve stupnich
   // EN: half the day length in degrees
@@ -2268,6 +2884,7 @@ void computeSun(int yday, int tzMinutes) {
 
   sunRise = (int)(noon - 4.0f * H);
   sunSet  = (int)(noon + 4.0f * H);
+  sunDayMinutes = constrain(sunSet - sunRise, 0, 1440);
 }
 
 // posun mistniho casu vuci UTC v minutach
@@ -2349,25 +2966,45 @@ void screenWake() {
 // ===========================================================================
 // HLAVICKA A OVLADACI LISTA / HEADER AND NAVIGATION BAR
 // ===========================================================================
+struct ScreenDefinition { int title; void (*draw)(); };
+const ScreenDefinition screenDefinitions[] = {
+  {T_APP, scrOverview}, {T_S_BATT, scrBattery}, {T_S_RUNTIME, scrRuntime},
+  {T_S_SOLAR, scrSolar}, {T_S_GRID, scrGridLoad}, {T_S_INV, scrInverter},
+  {T_S_WEATH, scrWeather}, {T_S_CHART, scrGraphs}, {T_S_TEMP, scrTemperatures},
+  {T_S_HISTORY, scrHistory}, {T_S_SAVINGS, scrSavings}, {T_S_FORECAST, scrForecast},
+  {T_S_COMPARE, scrCompare}, {T_ROI, scrRoi}, {T_S_ERRORS, scrErrors},
+  {T_S_SET3, scrSettings3}, {T_S_SET, scrSettings}, {T_S_SET2, scrSettings2},
+  {T_S_ABOUT, scrAbout}
+};
+static_assert(sizeof(screenDefinitions) / sizeof(screenDefinitions[0]) == SCREENS, "Screen count mismatch");
+
 const char* screenName(int i) {
-  switch (i) {
-    case 0:  return TR(T_APP);
-    case 1:  return TR(T_S_BATT);
-    case 2:  return TR(T_S_RUNTIME);
-    case 3:  return TR(T_S_SOLAR);
-    case 4:  return TR(T_S_GRID);
-    case 5:  return TR(T_S_WEATH);
-    case 6:  return TR(T_S_INV);
-    case 7:  return TR(T_S_CHART);
-    case 8:  return TR(T_S_TEMP);
-    case 9:  return TR(T_S_HISTORY);
-    case 10: return TR(T_S_SAVINGS);
-    case 11: return TR(T_S_FORECAST);
-    case 12: return TR(T_S_SET);
-    case 13: return TR(T_S_SET2);
-    case 14: return TR(T_S_ERRORS);
-    case 15: return TR(T_S_SET3);
-    default: return TR(T_S_ABOUT);
+  return TR(screenDefinitions[i >= 0 && i < SCREENS ? i : SCR_ABOUT].title);
+}
+
+// Tematicka ikonka stranky; -1 znamena, ze v zahlavi zustane vice mista.
+// EN: Page theme icon; -1 leaves more room in the header.
+int pageIcon(int page) {
+  switch (page) {
+    case SCR_BATTERY: return UI_ICON_BATTERY;
+    case SCR_RUNTIME: return UI_ICON_HISTORY;
+    case SCR_SOLAR: return UI_ICON_SOLAR;
+    case SCR_GRID: return UI_ICON_GRID;
+    case SCR_INVERTER: return UI_ICON_INVERTER;
+    case SCR_WEATHER: return UI_ICON_WEATHER;
+    case SCR_GRAPHS: return UI_ICON_CHART;
+    case SCR_TEMPERATURES: return UI_ICON_TEMPERATURE;
+    case SCR_HISTORY: return UI_ICON_HISTORY;
+    case SCR_SAVINGS: return UI_ICON_SAVINGS;
+    case SCR_FORECAST: return UI_ICON_FORECAST;
+    case SCR_COMPARE: return UI_ICON_COMPARE;
+    case SCR_ROI: return UI_ICON_PAYBACK;
+    case SCR_ERRORS: return UI_ICON_OFFLINE;
+    case SCR_ALERTS: return UI_ICON_ALERT;
+    case SCR_SETTINGS:
+    case SCR_SETTINGS2: return UI_ICON_SETTINGS;
+    case SCR_ABOUT: return UI_ICON_HOUSE;
+    default: return -1;
   }
 }
 
@@ -2383,27 +3020,6 @@ void drawHeader() {
   uint16_t hdrBg = stale ? C_STALE : (alertActive() ? C_ALERT : C_CARD);
   tft.fillRect(0, 0, SCR_W, HDR_H, hdrBg);
   tft.drawFastHLine(0, HDR_H, SCR_W, C_LINE);
-
-  tft.setTextColor(C_TXT, hdrBg);
-  tCz(screenName(screen), 8, 10);
-
-  // Hodiny uprostred. Kdyby se trefily do nazvu, posunou se doprava, ale
-  // EN: Clock in the middle. If it would hit the title it shifts right, but
-  // nikdy ne az pod pole s odpoctem vpravo - tam by se prekryly.
-  // EN: never as far as the countdown field on the right - they would overlap.
-  czOn();
-  int wTitle = tft.textWidth(screenName(screen));
-  int wClock = tft.textWidth(clockStr);
-  int cxMin = 8 + wTitle + 8 + wClock / 2;      // hned za nazvem / right after the title
-  int cxMax = SCR_W - 132 - wClock / 2;         // jeste pred odpoctem / still before the countdown
-  int cxClock = SCR_W / 2;
-  if (cxClock < cxMin) cxClock = cxMin;
-  if (cxClock > cxMax) cxClock = cxMax;
-
-  tft.setTextDatum(MC_DATUM);
-  tft.setTextColor(timeOk ? C_TXT : C_DIM, hdrBg);
-  tCz(clockStr, cxClock, 19);
-  tft.setTextDatum(TL_DATUM);
 
   // tecka stavu spojeni / link status dot
   uint16_t dot = !wifiOk ? C_GRID : (stale ? C_GRID : (dataOk ? C_BATT : C_PV));
@@ -2421,11 +3037,42 @@ void drawHeader() {
                              haveFetch ? (millis() - lastOkFetch) / 60000 : 0);
   else              snprintf(buf, sizeof(buf), TR(T_IN_SEC), left);
 
-  tft.fillRect(SCR_W - 130, 12, 105, 18, hdrBg);
-  tft.setTextDatum(TR_DATUM);
-  tft.setTextColor(stale ? C_TXT : C_DIM, hdrBg);
-  tCz(buf, SCR_W - 26, 12);
-  tft.setTextDatum(TL_DATUM);
+  if (screen == SCR_OVERVIEW) {
+    // Na prehledu patri vlevo cely nazev a vpravo hodiny misto odpoctu.
+    // EN: The overview shows the full name left and the clock instead of the countdown right.
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(C_TXT, hdrBg);
+    tCz(screenName(screen), 8, 10);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextColor(timeOk ? C_TXT : C_DIM, hdrBg);
+    tCz(clockStr, SCR_W - 26, 12);
+    tft.setTextDatum(TL_DATUM);
+  } else {
+    // Pred kreslenim se zmeri vsechna tri pole; dlouhe nazvy pouziji dva radky.
+    // EN: All three fields are measured before drawing; long titles use two rows.
+    czOn();
+    int icon = pageIcon(screen);
+    int titleX = icon >= 0 ? UI_ICON_SIZE + 8 : 8;
+    if (icon >= 0) drawUiIcon((uint8_t)icon, 0, 1);
+    int wTitle = tft.textWidth(screenName(screen));
+    int wClock = tft.textWidth(clockStr);
+    int wStatus = tft.textWidth(buf);
+    int cxMin = titleX + wTitle + (wClock + 1) / 2 + 8;
+    int cxMax = SCR_W - 34 - wStatus - (wClock + 1) / 2;
+    bool twoRows = cxMin > cxMax;
+    int clockX = twoRows ? (icon >= 0 ? 46 + (wClock + 1) / 2 : 8 + (wClock + 1) / 2)
+                         : constrain(SCR_W / 2, cxMin, cxMax);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(C_TXT, hdrBg);
+    tCz(screenName(screen), titleX, twoRows ? 1 : 10);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(timeOk ? C_TXT : C_DIM, hdrBg);
+    tCz(clockStr, clockX, twoRows ? 25 : 19);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextColor(stale ? C_TXT : C_DIM, hdrBg);
+    tCz(buf, SCR_W - 26, twoRows ? 18 : 12);
+    tft.setTextDatum(TL_DATUM);
+  }
 
   // Dva tenke pruhy po spodnim okraji hlavicky:
   // EN: Two thin bars along the bottom edge of the header:
@@ -2450,21 +3097,26 @@ void drawNav() {
 
   const int y = NAV_Y + 2, h = NAV_H - 6;
 
-  // vlevo / left
-  tft.fillRoundRect(8, y, 88, h, 6, C_CARD);
-  tft.drawRoundRect(8, y, 88, h, 6, C_LINE);
-  tft.fillTriangle(60, y + 8, 60, y + h - 8, 40, y + h / 2, C_TXT);
+  // Tlacitka maji stin, jemny horni lesk a svetly ramecek jako sada ikon.
+  // EN: Buttons use a shadow, subtle top highlight and bright frame like the icon set.
+  auto button = [&](int x, bool active) {
+    tft.fillRoundRect(x, y + 2, 88, h, 8, C_TRACK);
+    tft.fillRoundRect(x, y, 88, h - 2, 8, C_CARD);
+    tft.drawRoundRect(x, y, 88, h - 2, 8, active ? C_PV : C_LINE);
+  };
+
+  button(8, false);
+  tft.setSwapBytes(true);
+  tft.pushImage(37, y + 3, UI_NAV_ICON_SIZE, UI_NAV_ICON_SIZE, UI_NAV_LEFT_DATA);
 
   // domu - na uvodni strance zvyraznene
   // EN: home - highlighted on the overview screen
-  tft.fillRoundRect(116, y, 88, h, 6, screen == 0 ? C_LINE : C_CARD);
-  tft.drawRoundRect(116, y, 88, h, 6, screen == 0 ? C_PV : C_LINE);
-  icoHouse(145, y + 4, C_TXT);
+  button(116, screen == SCR_OVERVIEW);
+  tft.pushImage(145, y + 3, UI_NAV_ICON_SIZE, UI_NAV_ICON_SIZE, UI_NAV_HOME_DATA);
 
-  // vpravo / right
-  tft.fillRoundRect(224, y, 88, h, 6, C_CARD);
-  tft.drawRoundRect(224, y, 88, h, 6, C_LINE);
-  tft.fillTriangle(260, y + 8, 260, y + h - 8, 280, y + h / 2, C_TXT);
+  button(224, false);
+  tft.pushImage(253, y + 3, UI_NAV_ICON_SIZE, UI_NAV_ICON_SIZE, UI_NAV_RIGHT_DATA);
+  tft.setSwapBytes(false);
 
   // indikator stranky / page indicator
   int dots = SCREENS;
@@ -2475,25 +3127,7 @@ void drawNav() {
 
 // Obsah aktualni obrazovky. / Content of the current screen.
 void drawContent() {
-  switch (screen) {
-    case 0:  scrOverview();  break;
-    case 1:  scrBattery();   break;
-    case 2:  scrRuntime();   break;
-    case 3:  scrSolar();     break;
-    case 4:  scrGridLoad();  break;
-    case 5:  scrWeather();   break;
-    case 6:  scrInverter();  break;
-    case 7:  scrGraphs();    break;
-    case 8:  scrTemperatures(); break;
-    case 9:  scrHistory();   break;
-    case 10: scrSavings();   break;
-    case 11: scrForecast();  break;
-    case 12: scrSettings();  break;
-    case 13: scrSettings2(); break;
-    case 14: scrErrors();    break;
-    case 15: scrSettings3(); break;
-    default: scrAbout();     break;
-  }
+  screenDefinitions[screen >= 0 && screen < SCREENS ? screen : SCR_ABOUT].draw();
 }
 
 // Ramecek kolem obsahu, cervene pri starych datech nebo upozorneni.
@@ -2510,11 +3144,98 @@ void drawFrame() {
 // EN: value would leave remnants of the previous one.
 void drawScreen() {
   if (!screenOn) return;
+  // Jedna SPI transakce zkrati viditelne mazani a prekresleni cele stranky.
+  // EN: One SPI transaction shortens the visible clear-and-redraw interval.
+  tft.startWrite();
   tft.fillRect(0, CONT_Y, SCR_W, CONT_H, C_BG);
   drawContent();
   drawHeader();
   drawNav();
   drawFrame();
+  tft.endWrite();
+}
+
+// Pri animaci se prekresli jen oblast aktualniho ukazatele, ne cela obrazovka.
+// EN: During animation only the current gauge area is redrawn, never the full screen.
+void drawAnimatedGauges() {
+  if (!screenOn) return;
+  tft.startWrite();
+  switch (screen) {
+    case SCR_OVERVIEW: {
+      tft.fillRect(14, 230, 140, 96, C_BG);
+      tft.fillRect(166, 230, 140, 96, C_BG);
+      tft.fillRect(14, 326, 140, 92, C_BG);
+      tft.fillRect(166, 326, 140, 92, C_BG);
+      float load = animatedGauge(GM_LOAD), pv = animatedGauge(GM_PV);
+      float grid = animatedGauge(GM_GRID), batt = animatedGauge(GM_BATT);
+      halfGauge(84, 300, 62, 13, load, CFG_RANGE, C_LOAD, fmtPower(v_load_power), TR(T_LOAD));
+      halfGauge(236, 300, 62, 13, pv, CFG_RANGE, C_PV, fmtPower(v_pv_power), TR(T_SOLARPV));
+      halfGauge(84, 394, 62, 13, fabsf(grid), CFG_RANGE,
+                grid > 1 ? C_GRID : C_DIM, fmtPower(fabsf(v_grid_power)), TR(T_GRID));
+      halfGauge(236, 394, 62, 13, fabsf(batt), CFG_RANGE / 2,
+                batt >= 0 ? C_BATT : C_GRID, fmtSigned(v_batt_power),
+                batt >= 0 ? TR(T_BATT_CHG) : TR(T_BATT_DIS));
+      break;
+    }
+    case SCR_BATTERY: {
+      const int cx = 160, cy = 208, r = 118, th = 22;
+      tft.fillRect(34, 82, 252, 146, C_BG);
+      float soc = animatedGauge(GM_SOC);
+      uint16_t col = v_batt_power >= 0 ? C_BATT : C_GRID;
+      uint16_t numCol = v_soc < 20 ? C_GRID : col;
+      arcRing(cx, cy, r - th, r, 180, 360, C_TRACK);
+      arcRing(cx, cy, r - th, r, 180, 180 + 180 * constrain(soc / 100.0f, 0.0f, 1.0f), col);
+      gaugeTicks(cx, cy, r);
+      const char* socStr = fmt("%.0f", v_soc);
+      czOff(); int wNum = tft.textWidth(socStr, 7); czOn();
+      const int wPct = 12; int x0 = cx - (wNum + 5 + wPct) / 2;
+      tft.setTextDatum(TL_DATUM); tft.setTextColor(numCol, C_BG); tAs(socStr, x0, 134, 7);
+      tft.setTextColor(C_DIM, C_BG); tCz("%", x0 + wNum + 5, 158);
+      char rbuf[24]; snprintf(rbuf, sizeof(rbuf), "%+.1f %%/hod", socRate);
+      tft.setTextDatum(MC_DATUM); tft.setTextColor(socRate >= 0 ? C_BATT : C_GRID, C_BG);
+      tAs(rbuf, cx, 196, 4);
+      tft.setTextColor(v_soc < CFG_ALERT_SOC ? C_GRID : C_TXT, C_BG);
+      tCz(v_soc < CFG_ALERT_SOC ? TR(T_ALERT_SOC) :
+          (v_batt_power >= 0 ? TR(T_CHARGING) : TR(T_DISCHARGING)), cx, 220);
+      tft.setTextDatum(TL_DATUM);
+      break;
+    }
+    case SCR_SOLAR: {
+      tft.fillRect(44, 44, 232, 136, C_BG);
+      float pv = animatedGauge(GM_PV);
+      halfGauge(160, 160, 100, 20, pv, CFG_RANGE, C_PV, fmtPower(v_pv_power), TR(T_PV_NOW));
+      break;
+    }
+    case SCR_GRID: {
+      tft.fillRect(10, 78, 300, 96, C_BG);
+      float grid = animatedGauge(GM_GRID), load = animatedGauge(GM_LOAD);
+      halfGauge(84, 150, 68, 15, fabsf(grid), CFG_RANGE,
+                grid > 1 ? C_GRID : C_DIM, fmtPower(fabsf(v_grid_power)),
+                grid > 0 ? TR(T_GRID_IMP) : TR(T_GRID_NONE));
+      halfGauge(236, 150, 68, 15, load, CFG_RANGE, C_LOAD, fmtPower(v_load_power), TR(T_HOUSE_LOAD));
+      break;
+    }
+    case SCR_WEATHER: {
+      tft.fillRect(90, 145, 140, 96, C_BG);
+      float cloud = animatedGauge(GM_CLOUD);
+      halfGauge(160, 213, 62, 13, cloud, 100, C_DIM, fmt("%.0f %%", w_cloud), TR(T_CLOUDS));
+      break;
+    }
+    case SCR_INVERTER: {
+      tft.fillRect(44, 44, 232, 140, C_BG);
+      float temp = animatedGauge(GM_TEMP);
+      uint16_t tc = temp > 70 ? C_GRID : (temp > 55 ? C_PV : C_BATT);
+      halfGaugeU(160, 160, 100, 20, temp, 100, tc, fmt("%.1f", i_temp), "°C", TR(T_INV_TEMP));
+      if (i_temp > CFG_ALERT_TEMP) {
+        tft.setTextDatum(MC_DATUM); tft.setTextColor(C_GRID, C_BG);
+        tCz(TR(T_ALERT_TEMP), SCR_W / 2, 176); tft.setTextDatum(TL_DATUM);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+  tft.endWrite();
 }
 
 // ===========================================================================
@@ -2771,6 +3492,12 @@ void satAdd(uint16_t& total, uint16_t value) {
   total = value > (uint16_t)(65535U - total) ? 65535U : total + value;
 }
 
+void yesterdaySummarySave() { prefs.putBytes("ySum", &yesterday, sizeof(yesterday)); }
+void yesterdaySummaryLoad() {
+  size_t n = prefs.getBytes("ySum", &yesterday, sizeof(yesterday));
+  if (n != sizeof(yesterday)) memset(&yesterday, 0, sizeof(yesterday));
+}
+
 // Uzavre prave skonceny den a zapise ho do historie.
 // EN: Closes the day that just ended and writes it into the history.
 void closeDay(int mday, int mon) {
@@ -2800,6 +3527,13 @@ void closeDay(int mday, int mon) {
     satAdd(hmBOut[mon], bo);
     satAdd(hmGrid[mon], gr);
   }
+
+  yesterday.pv = pv; yesterday.load = ld; yesterday.save = sv;
+  yesterday.maxLoad = maxLoad < 0 ? 0 : (uint16_t)maxLoad;
+  yesterday.minInv = minInvTemp; yesterday.maxInv = maxInvTemp;
+  yesterday.minOut = minOutTemp; yesterday.maxOut = maxOutTemp;
+  yesterday.day = (uint8_t)mday; yesterday.valid = 1;
+  yesterdaySummarySave();
 
   sumSave();
   Serial.printf("den uzavren: FVE %.1f, zatez %.1f, baterie +%.1f/-%.1f, sit %.1f kWh, usetreno %.1f\n",
@@ -2879,8 +3613,18 @@ uint32_t uptimeSec() {
 //     so it switches to days and hours.
 const char* uptimeText() {
   uint32_t sec = uptimeSec();
-  if (sec < 86400UL) return fmt("%.0f min", sec / 60.0f);
-  return fmt2("%lu d %lu h", sec / 86400UL, (sec % 86400UL) / 3600UL);
+  uint32_t days = sec / 86400UL;
+  uint32_t years = days / 365UL;
+  days %= 365UL;
+  uint32_t months = days / 30UL;
+  days %= 30UL;
+  uint32_t hours = (sec % 86400UL) / 3600UL;
+  uint32_t minutes = (sec % 3600UL) / 60UL;
+  static char value[32];
+  snprintf(value, sizeof(value), "%lur %lum %lud %luh %lum",
+           (unsigned long)years, (unsigned long)months, (unsigned long)days,
+           (unsigned long)hours, (unsigned long)minutes);
+  return value;
 }
 
 // stari dat - kdyz se dlouho nic nenacetlo, nesmi displej tvarit, ze je vse v poradku
@@ -3055,8 +3799,7 @@ void netDiag() {
       Serial.println("  Brana odpovida, takze sit funguje - problem je v cili.");
       Serial.println("  - overte aktualni IP menice (mohl dostat jinou z DHCP)");
       Serial.println("  - bezi Solar Assistant?");
-      Serial.println("  Tlacitkem SKEN SITE na strance nastaveni se da");
-      Serial.println("  prohledat cela podsit a najit, kde menic je.");
+      Serial.println("  Zkontrolujte adresu API a izolaci klientu na WiFi.");
     }
   } else {
     Serial.println("  Nejaky port odpovida - pokud to neni 80, upravte URL:");
@@ -3065,53 +3808,6 @@ void netDiag() {
   Serial.println("==========================================================");
   Serial.println();
   snprintf(setMsg, sizeof(setMsg), "test proveden, vysledek v Serialu");
-}
-
-// ===========================================================================
-// SKEN PODSITE / SUBNET SCAN
-// Projde cely rozsah .1 az .254 a vypise adresy, kde neco posloucha na
-// EN: Walks the whole .1 to .254 range and lists addresses listening on
-// portu 80. Trva do minuty, spousti se jen tlacitkem.
-// EN: port 80. Takes up to a minute, runs only from the button.
-// ===========================================================================
-void netScan() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("sken preskocen - deska neni na WiFi");
-    return;
-  }
-
-  IPAddress me = WiFi.localIP();
-  Serial.println();
-  Serial.println("==========================================================");
-  Serial.printf("  SKEN SITE %d.%d.%d.1-254 na portu 80\n", me[0], me[1], me[2]);
-  Serial.println("  muze trvat az minutu...");
-  Serial.println("==========================================================");
-
-  int found = 0;
-  for (int host = 1; host <= 254; host++) {
-    if (host == me[3]) continue;                 // sebe preskocit / skip ourselves
-
-    IPAddress ip(me[0], me[1], me[2], host);
-    WiFiClient c;
-    if (c.connect(ip, 80, 250)) {
-      Serial.printf("  %s  <<< odpovida na portu 80\n", ip.toString().c_str());
-      c.stop();
-      found++;
-    }
-    if (host % 32 == 0) { Serial.printf("  ... %d/254\n", host); Serial.flush(); }
-    delay(1);
-  }
-
-  Serial.println("----------------------------------------------------------");
-  Serial.printf("  nalezeno %d zarizeni\n", found);
-  if (found)
-    Serial.println("  Pokud je mezi nimi menic, prepiste API_HOST v kodu.");
-  else
-    Serial.println("  Nic nenalezeno - deska se na LAN nedostane.");
-  Serial.println("==========================================================");
-  Serial.println();
-
-  snprintf(setMsg, sizeof(setMsg), TR(T_SCAN_DONE), found);
 }
 
 // ===========================================================================
@@ -3173,6 +3869,26 @@ void splash(const char* l1, const char* l2, uint16_t col) {
   tft.setTextDatum(TL_DATUM);
 }
 
+void bootScreen(const char* status, const char* detail, uint16_t col) {
+  tft.fillScreen(C_BG);
+  drawLogo(54);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_TXT, C_BG); tCz("Cabaj Tomáš  2026", 160, 158);
+  tft.setTextColor(C_DIM, C_BG); tCz("firmware v" FW_VERSION, 160, 181);
+  uiPanel(18, 205, 284, 100);
+  tft.setTextColor(C_TXT, C_CARD); tCz(TR(T_CONTACT), 160, 220);
+  tft.setTextColor(C_WEATH, C_CARD);
+  tCz("www.pcprovas.cz", 160, 245);
+  tCz("github.com/tomas-cabaj", 160, 267);
+  tCz("t.cabaj@email.cz", 160, 289);
+  uiPanel(18, 336, 284, 68, col);
+  tft.setTextColor(col, C_CARD); tCz(status, 160, 357);
+  if (detail) {
+    tft.setTextColor(C_DIM, C_CARD); tCz(detail, 160, 383);
+  }
+  tft.setTextDatum(TL_DATUM);
+}
+
 void loadOrCalibrate() {
   uint16_t cal[5];
   // pro portret je potreba vlastni kalibrace, klic je jiny nez u rotace 1
@@ -3217,22 +3933,23 @@ void handleTouch() {
   lastTouch = millis();
 
   // prokliky z uvodni obrazovky na podrobnou stranku
+  if (screen == SCR_ROI && y < NAV_Y) { roiTouch(x, y); drawScreen(); return; }
   // EN: taps on the overview screen jump to the detail page
-  if (screen == 0 && y < NAV_Y) {
+  if (screen == SCR_OVERVIEW && y < NAV_Y) {
     int target = -1;
     // Menic / Solarni PV / Inverter
     // EN: Solar PV
-    if      (y >=  44 && y < 100) target = (x < 160) ? 6 : 3;
-    else if (y >= 104 && y < 160) target = (x < 160) ? 4 : 1;   // Sit / Baterie / Grid / Battery
+    if      (y >=  44 && y < 100) target = (x < 160) ? SCR_INVERTER : SCR_SOLAR;
+    else if (y >= 104 && y < 160) target = (x < 160) ? SCR_GRID : SCR_BATTERY;
     // Predikce -> predikce uspor
     // EN: Forecast -> savings forecast
-    else if (y >= 164 && y < 228) target = 11;
+    else if (y >= 164 && y < 228) target = SCR_FORECAST;
     // ukazatel Zatez / PV / Load
     // EN: PV gauge
-    else if (y >= 238 && y < 322) target = (x < 160) ? 4 : 3;
+    else if (y >= 238 && y < 322) target = (x < 160) ? SCR_GRID : SCR_SOLAR;
     // ukazatel Sit / Baterie / Grid
     // EN: Battery gauge
-    else if (y >= 332 && y < 416) target = (x < 160) ? 4 : 2;
+    else if (y >= 332 && y < 416) target = (x < 160) ? SCR_GRID : SCR_RUNTIME;
 
     if (target >= 0) {
       screen = target;
@@ -3241,28 +3958,50 @@ void handleTouch() {
     return;
   }
 
+  // Klepnuti do caroveho grafu vybere nejblizsi ulozeny desetiminutovy bod.
+  // EN: A tap in a line chart selects the nearest stored ten-minute point.
+  if ((screen == SCR_GRAPHS || screen == SCR_TEMPERATURES) &&
+      y < NAV_Y && selectGraphPoint(x, y)) {
+    drawScreen();
+    return;
+  }
+
+  // Klepnuti do grafu uspor vybere denni sloupec.
+  // EN: Tapping the savings chart selects its daily bar.
+  if (screen == SCR_SAVINGS && selectSavingsPoint(x, y)) {
+    drawScreen();
+    return;
+  }
+
+  // Klepnuti do grafu predikce vybere mesic.
+  // EN: Tapping the forecast chart selects a month.
+  if (screen == SCR_FORECAST && selectForecastPoint(x, y)) {
+    drawScreen();
+    return;
+  }
+
   // radky na strance NASTAVENI 2 / rows on the SETTINGS 2 screen
   // klepnuti na graf historie prepne zobrazene obdobi
   // EN: tapping the history chart switches the period shown
-  if (screen == 9 && y >= 44 && y < 240) {
+  if (screen == SCR_HISTORY && y >= 44 && y < 240) {
     histRange = (histRange + 1) % 3;
     drawScreen();
     return;
   }
 
-  if (screen == 13 && y < NAV_Y) {
+  if (screen == SCR_SETTINGS2 && y < NAV_Y) {
     int row = (y - S2_Y0) / S2_STEP;
     if (row >= 0 && row < S2_ROWS && (y - S2_Y0) % S2_STEP <= S2_H) cfgNext(row);
     return;
   }
 
-  if (screen == 15 && y < NAV_Y) {
+  if (screen == SCR_ALERTS && y < NAV_Y) {
     int row = (y - S3_Y0) / S3_STEP;
     if (row >= 0 && row < S3_ROWS && (y - S3_Y0) % S3_STEP <= S3_H) cfg3Next(row);
     return;
   }
 
-  if (screen == 14 && y >= 354 && y <= 404) {
+  if (screen == SCR_ERRORS && y >= 354 && y <= 404) {
     errorClear();
     drawScreen();
     return;
@@ -3270,7 +4009,7 @@ void handleTouch() {
 
   // tlacitko na strance nastaveni / button on the settings screen
   if (y < NAV_Y) {
-    if (screen == 12 && y >= SET_BTN_Y && y <= SET_BTN_Y + SET_BTN_H) {
+    if (screen == SCR_SETTINGS && y >= SET_BTN_Y && y <= SET_BTN_Y + SET_BTN_H) {
       if (x >= SET_BTN_X && x <= SET_BTN_X + SET_BTN_W) {
         dumpRequest = true;
         // stahnout hned, necekat na interval
@@ -3285,10 +4024,14 @@ void handleTouch() {
         drawScreen();
       }
     }
-    else if (screen == 12 && y >= SET_BT3_Y && y <= SET_BT3_Y + SET_BT3_H) {
-      snprintf(setMsg, sizeof(setMsg), "%s", TR(T_SCANNING));
-      drawScreen();
-      netScan();
+    else if (screen == SCR_SETTINGS && y >= SET_BT3_Y && y <= SET_BT3_Y + SET_BT3_H) {
+      if (restartArmedAt && millis() - restartArmedAt < 5000) {
+        histSave();
+        delay(150);
+        ESP.restart();
+      }
+      restartArmedAt = millis();
+      snprintf(setMsg, sizeof(setMsg), "%s", TR(T_RESTART_AGAIN));
       drawScreen();
     }
     return;
@@ -3296,7 +4039,7 @@ void handleTouch() {
 
   int prevScreen = screen;
   if      (x < 108)  screen = (screen - 1 + SCREENS) % SCREENS;
-  else if (x < 216)  screen = 0;
+  else if (x < 216)  screen = SCR_OVERVIEW;
   else               screen = (screen + 1) % SCREENS;
 
   if (screen != prevScreen) drawScreen();
@@ -3324,8 +4067,10 @@ void setup() {
 
   prefs.begin("cyd", false);
   cfgLoad();
+  roiLoad();
   errorLoad();
   sumLoad();
+  yesterdaySummaryLoad();
   baseLoadFromNvs();
   // podsviceni pres PWM kvuli jasu
   // EN: backlight on PWM so brightness can be set
@@ -3334,23 +4079,12 @@ void setup() {
   tft.setRotation(CFG_ROT);
   loadOrCalibrate();
 
-  // uvitaci obrazovka / splash screen
-  tft.fillScreen(C_BG);
-  drawLogo(150);
-
-  tft.setTextDatum(MC_DATUM);
-  tft.setTextColor(C_TXT, C_BG);
-  tCz(TR(T_AUTHOR), SCR_W / 2, 268);
-  tft.setTextColor(C_DIM, C_BG);
-  tCz("firmware v" FW_VERSION, SCR_W / 2, 290);
-
-  tft.setTextColor(C_WEATH, C_BG);
-  tCz("github.com/tomas-cabaj", SCR_W / 2, 326);
-  tCz("t.cabaj@email.cz", SCR_W / 2, 348);
-  tft.setTextDatum(TL_DATUM);
+  // Kontaktni stranka zustava viditelna, meni se jen stavovy blok dole.
+  // EN: The contact page stays visible while only the lower status panel changes.
+  bootScreen(TR(T_APP), TR(T_WIFI_CONN), C_WEATH);
   delay(2500);
 
-  splash(TR(T_WIFI_CONN), ssid, C_TXT);
+  bootScreen(TR(T_WIFI_CONN), ssid, C_TXT);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
@@ -3364,18 +4098,19 @@ void setup() {
     setupOTA();
     configTzTime(NTP_TZ, NTP_SERVER1, NTP_SERVER2);
     Serial.println("cas se synchronizuje z internetu");
-    splash(TR(T_WIFI_OK), TR(T_FETCHING), C_BATT);
+    bootScreen(TR(T_WIFI_OK), TR(T_FETCHING), C_BATT);
     dataOk = fetchData();
     if (dataOk) {
       errorStop(ERR_FETCH); errorStop(ERR_API);
       lastOkFetch = millis(); haveFetch = true; pushHistory(); updateSocRate();
       if (v_soc < CFG_ALERT_SOC) errorStart(ERR_SOC); else errorStop(ERR_SOC);
       if (i_temp > CFG_ALERT_TEMP) errorStart(ERR_TEMP); else errorStop(ERR_TEMP);
+      updateGridAlert();
     } else { errorStart(apiInvalid ? ERR_API : ERR_FETCH); }
     updateLoadLed();
   } else {
     Serial.println("WiFi se nepodarilo pripojit");
-    splash(TR(T_WIFI_ERR), ssid, C_GRID);
+    bootScreen(TR(T_WIFI_ERR), ssid, C_GRID);
     delay(2000);
   }
   lastFetch = millis();
@@ -3409,6 +4144,9 @@ void loop() {
   // stahovani dat / data fetching
   if (millis() - lastFetch > CFG_FETCH) {
     lastFetch = millis();
+    float previousGauge[GM_COUNT];
+    for (int i = 0; i < GM_COUNT; ++i) previousGauge[i] = gaugeTarget((uint8_t)i);
+    bool hadDataBeforeFetch = haveFetch;
 
     if (WiFi.status() != WL_CONNECTED) {
       wifiOk = false;
@@ -3431,6 +4169,8 @@ void loop() {
       updateSocRate();
       if (v_soc < CFG_ALERT_SOC) errorStart(ERR_SOC); else errorStop(ERR_SOC);
       if (i_temp > CFG_ALERT_TEMP) errorStart(ERR_TEMP); else errorStop(ERR_TEMP);
+      updateGridAlert();
+      startGaugeAnimation(previousGauge, hadDataBeforeFetch);
 
       Serial.printf("SOC %5.1f %%  FVE %6.0f W  BAT %+7.0f W  ZATEZ %6.0f W  SIT %+7.0f W  %.1f C  dioda=%s\n",
                     v_soc, v_pv_power, v_batt_power, v_load_power, v_grid_power, i_temp,

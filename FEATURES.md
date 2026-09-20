@@ -41,7 +41,8 @@ the position.
 | 13 | NASTAVENÍ 2 | SETTINGS 2 |
 | 14 | CHYBY A VÝPADKY | ERRORS & OUTAGES |
 | 15 | UPOZORNĚNÍ | ALERTS |
-| 16 | O APLIKACI | ABOUT |
+| 16 | DNES A VČERA | TODAY & YESTERDAY |
+| 17 | O APLIKACI | ABOUT |
 
 ---
 

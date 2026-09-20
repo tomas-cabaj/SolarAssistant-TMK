@@ -65,9 +65,47 @@ for m in re.finditer(r"halfGauge\([^;]*?TR\((T_[A-Z0-9_]+)\)\);", src, re.S):
         if w(txt) > 148:
             problems.append(("popisek ukazatele", name, tid, txt, w(txt), 148))
 
+# Payback page: labels plus the largest step, date labels and maximum values.
+for i, name in enumerate(LANGS):
+    for tid, avail, kind in [
+        ("T_RESTART", 138, "restart tlacitko"),
+        ("T_PLAN_VS_ACTUAL", 296, "legenda predikce"),
+        ("T_TAP_HINT", 308, "napoveda upozorneni"),
+        ("T_MAX_LOAD", 112, "porovnani maximum"),
+    ]:
+        txt = tr[tid][i]
+        if w(txt) > avail:
+            problems.append((kind, name, tid, txt, w(txt), avail))
+    for tid in ["T_DAY", "T_NIGHT"]:
+        txt = tr[tid][i]
+        if w(txt) > 86:
+            problems.append(("pocasi den/noc", name, tid, txt, w(txt), 86))
+    for tid in ["T_W_CLEAR", "T_W_PARTLY", "T_W_OVERCAST", "T_W_FOG", "T_W_DRIZZLE",
+                "T_W_RAIN", "T_W_SNOW", "T_W_SHOWERS", "T_W_SNOWSH", "T_W_STORM"]:
+        txt = tr[tid][i]
+        if w(txt) > 236:
+            problems.append(("pocasi stav", name, tid, txt, w(txt), 236))
+
+for i, name in enumerate(LANGS):
+    for tid in ["T_ROI_INV", "T_ROI_ENERGY"]:
+        txt = tr[tid][i] + "  " + tr["T_ROI_STEP"][i] + " 10000"
+        if w(txt) > 292:
+            problems.append(("navratnost hlavicka", name, tid, txt, w(txt), 292))
+    for tid, avail in [("T_ROI_START", 296), ("T_ROI_DATE", 208),
+                       ("T_ROI_SAVE_ERR", 308), ("T_ROI_WAIT", 308),
+                       ("T_ROI_PAID", 184), ("T_REMAINING", 184)]:
+        txt = tr[tid][i]
+        if w(txt) > avail:
+            problems.append(("navratnost", name, tid, txt, w(txt), avail))
+for txt, avail in [("9999999 Kč", 200), ("9999.999 MWh", 200),
+                   ("149999985 Kč", 184), ("100 %", 60)]:
+    if w(txt) > avail:
+        problems.append(("navratnost hodnota", "all", "value", txt, w(txt), avail))
+
 if problems:
     print("PRETEKAJICI TEXTY (%d):" % len(problems))
     for kind, lng, tid, txt, got, avail in problems:
         print("  %-18s %s  %-14s %-28s %3d px / %3d px" % (kind, lng, tid, txt, got, avail))
+    raise SystemExit(1)
 else:
     print("vsechny popisky se vejdou")

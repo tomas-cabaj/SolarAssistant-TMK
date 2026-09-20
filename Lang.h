@@ -9,6 +9,18 @@ extern uint8_t lang;                 // aktualni jazyk, uklada se do NVS
 #define TR(id) STRINGS[id][lang]
 
 enum {
+  T_ROI,
+  T_ROI_INV,
+  T_ROI_ENERGY,
+  T_ROI_STEP,
+  T_ROI_PAID,
+  T_ROI_START,
+  T_ROI_EST,
+  T_ROI_YEARS,
+  T_ROI_DONE,
+  T_ROI_DATE,
+  T_ROI_WAIT,
+  T_ROI_SAVE_ERR,
   T_APP,
   T_S_BATT,
   T_S_SOLAR,
@@ -83,7 +95,8 @@ enum {
   T_TO_SERIAL,
   T_TEST_CONN,
   T_TGT_PORTS,
-  T_NET_SCAN,
+  T_RESTART,
+  T_RESTART_AGAIN,
   T_NOTHING,
   T_NOT_CONN,
   T_WIFI_CONN,
@@ -102,7 +115,6 @@ enum {
   T_TESTING,
   T_SCANNING,
   T_DUMPED,
-  T_SCAN_DONE,
   T_TEST_DONE,
   T_W_CLEAR,
   T_W_PARTLY,
@@ -130,23 +142,32 @@ enum {
   T_USAGE,
   T_PEAK_TODAY,
   T_MIN_TODAY,
+  T_MIN_SHORT,
   T_MAX_TODAY,
   T_ALERT_SOC,
   T_ALERT_TEMP,
   T_S_ERRORS,
   T_S_SET3,
+  T_S_COMPARE,
   T_ERR_FETCH,
   T_ERR_API,
   T_ERR_COUNTER,
+  T_ERR_GRID,
   T_NO_ERRORS,
   T_CLEAR_ERRORS,
   T_FAILURES,
   T_MIN_MAX,
   T_SOC_EVENING,
+  T_YESTERDAY,
+  T_MAX_LOAD,
+  T_COMPARE_GRAPH,
   T_ALERT_SOC_LIMIT,
   T_ALERT_TEMP_LIMIT,
   T_ALERT_OFFLINE,
   T_ERR_LED,
+  T_GRID_LIMIT,
+  T_GRID_TIME,
+  T_NVS_FREE,
   T_RED,
   T_BLUE,
   T_ORANGE,
@@ -171,6 +192,7 @@ enum {
   T_SAVED,
   T_PLAN,
   T_ACTUAL,
+  T_PLAN_VS_ACTUAL,
   T_YEAR_PLAN,
   T_OUT_TEMP,
   T_TODAY,
@@ -204,7 +226,19 @@ enum {
 };
 
 const char* const STRINGS[STR_N][LANG_N] = {
-  { "Solar Assistant", "Solar Assistant", "Solar Assistant", "Solar Assistant" },   // T_APP
+  { "NÁVRATNOST", "PAYBACK", "ZWROT", "AMORTISATION" },   // T_ROI
+  { "Počáteční investice", "Initial investment", "Koszt inwestycji", "Investition" },   // T_ROI_INV
+  { "Využitá energie", "Used energy", "Zużyta energia", "Genutzte Energie" },   // T_ROI_ENERGY
+  { "Krok", "Step", "Krok", "Schritt" },   // T_ROI_STEP
+  { "Vráceno", "Recovered", "Zwrócono", "Erwirtschaftet" },   // T_ROI_PAID
+  { "Provoz od (den / měsíc / rok)", "Start (day / month / year)", "Start (dzień / miesiąc / rok)", "Start (Tag / Monat / Jahr)" },   // T_ROI_START
+  { "Odhad do splacení", "Time to payback", "Czas do zwrotu", "Zeit bis Amortisation" },   // T_ROI_EST
+  { "let", "years", "lat", "Jahre" },   // T_ROI_YEARS
+  { "Splaceno", "Paid back", "Spłacono", "Amortisiert" },   // T_ROI_DONE
+  { "Nastavte datum", "Set start date", "Ustaw datę", "Startdatum setzen" },   // T_ROI_DATE
+  { "Chybí data / čas", "Need data / time", "Brak danych / czasu", "Daten / Zeit fehlen" },   // T_ROI_WAIT
+  { "Chyba uložení", "Save failed", "Błąd zapisu", "Speichern fehlgeschlagen" },   // T_ROI_SAVE_ERR
+  { "SolarAssistant-TMK", "SolarAssistant-TMK", "SolarAssistant-TMK", "SolarAssistant-TMK" },   // T_APP
   { "BATERIE", "BATTERY", "BATERIA", "BATTERIE" },   // T_S_BATT
   { "SOLÁR", "SOLAR", "SOLAR", "SOLAR" },   // T_S_SOLAR
   { "SÍŤ A ZÁTĚŽ", "GRID & LOAD", "SIEĆ I OBCIĄŻ.", "NETZ & LAST" },   // T_S_GRID
@@ -278,7 +312,8 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "do Serialu", "to Serial", "do Serial", "an Seriell" },   // T_TO_SERIAL
   { "TEST SPOJENÍ", "LINK TEST", "TEST POŁĄCZENIA", "VERBINDUNGSTEST" },   // T_TEST_CONN
   { "porty cíle", "target ports", "porty celu", "Ziel-Ports" },   // T_TGT_PORTS
-  { "SKEN SÍTĚ  (trvá až minutu)", "NETWORK SCAN  (up to a minute)", "SKAN SIECI  (do minuty)", "NETZ-SCAN  (bis 1 Min)" },   // T_NET_SCAN
+  { "RESTART ZAŘÍZENÍ", "RESTART DEVICE", "RESTART", "NEUSTART" },   // T_RESTART
+  { "Klepněte znovu pro restart", "Tap again to restart", "Dotknij ponownie, aby zrestartować", "Zum Neustart erneut tippen" },   // T_RESTART_AGAIN
   { "zatím nic", "nothing yet", "jeszcze nic", "noch nichts" },   // T_NOTHING
   { "nepřipojeno", "not connected", "brak połączenia", "nicht verbunden" },   // T_NOT_CONN
   { "Připojuji WiFi", "Connecting Wi-Fi", "Łączę z Wi-Fi", "Verbinde WLAN" },   // T_WIFI_CONN
@@ -297,7 +332,6 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "testuji spojení...", "testing link...", "testuję połączenie...", "teste Verbindung..." },   // T_TESTING
   { "skenuji síť, čekejte...", "scanning network, wait...", "skanuję sieć, czekaj...", "scanne Netz, warten..." },   // T_SCANNING
   { "vypsáno %lu s po startu", "dumped %lu s after boot", "zrzut %lu s po starcie", "ausgegeben %lu s nach Start" },   // T_DUMPED
-  { "sken hotov, nalezeno %d zařízení", "scan done, %d devices found", "skan gotowy, znaleziono %d", "Scan fertig, %d gefunden" },   // T_SCAN_DONE
   { "test proveden, výsledek v Serialu", "test done, result in Serial", "test wykonany, wynik w Serial", "Test fertig, Ergebnis seriell" },   // T_TEST_DONE
   { "jasno", "clear", "bezchmurnie", "klar" },   // T_W_CLEAR
   { "polojasno", "partly cloudy", "częściowe zachmurzenie", "heiter" },   // T_W_PARTLY
@@ -325,23 +359,32 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "využití", "usage", "użycie", "Nutzung" },   // T_USAGE
   { "Špička dnes", "Peak today", "Szczyt dziś", "Spitze heute" },   // T_PEAK_TODAY
   { "Minimum dnes", "Minimum today", "Minimum dziś", "Minimum heute" },   // T_MIN_TODAY
+  { "Min dnes", "Min today", "Min dziś", "Min heute" },   // T_MIN_SHORT
   { "Maximum dnes", "Maximum today", "Maksimum dziś", "Maximum heute" },   // T_MAX_TODAY
   { "NÍZKÝ STAV BATERIE", "LOW BATTERY", "NISKI STAN BATERII", "BATTERIE SCHWACH" },   // T_ALERT_SOC
   { "VYSOKÁ TEPLOTA MĚNIČE", "INVERTER OVERHEATING", "WYSOKA TEMP. FALOWNIKA", "WR ÜBERHITZT" },   // T_ALERT_TEMP
   { "CHYBY A VÝPADKY", "ERRORS & OUTAGES", "BŁĘDY I AWARIE", "FEHLER & AUSFÄLLE" },   // T_S_ERRORS
   { "UPOZORNĚNÍ", "ALERTS", "ALERTY", "WARNUNGEN" },   // T_S_SET3
+  { "DNES A VČERA", "TODAY & YESTERDAY", "DZIŚ I WCZORAJ", "HEUTE & GESTERN" },   // T_S_COMPARE
   { "VÝPADEK SPOJENÍ", "CONNECTION OUTAGE", "AWARIA POŁĄCZENIA", "VERBINDUNGSAUSFALL" },   // T_ERR_FETCH
   { "NEPLATNÁ DATA API", "INVALID API DATA", "BŁĘDNE DANE API", "UNGÜLTIGE API-DATEN" },   // T_ERR_API
   { "RESET POČÍTADLA", "COUNTER RESET", "RESET LICZNIKA", "ZÄHLER-RESET" },   // T_ERR_COUNTER
+  { "DLOUHÝ ODBĚR ZE SÍTĚ", "LONG GRID IMPORT", "DŁUGI POBÓR Z SIECI", "LANGER NETZBEZUG" },   // T_ERR_GRID
   { "Bez zaznamenaných chyb", "No recorded errors", "Brak zapisanych błędów", "Keine gespeicherten Fehler" },   // T_NO_ERRORS
   { "SMAZAT SEZNAM CHYB", "CLEAR ERROR LIST", "WYCZYŚĆ LISTĘ BŁĘDÓW", "FEHLERLISTE LÖSCHEN" },   // T_CLEAR_ERRORS
   { "selhání", "failures", "błędy", "Fehler" },   // T_FAILURES
   { "min/max čas", "min/max time", "min/max czas", "Min/Max Zeit" },   // T_MIN_MAX
   { "SOC večer", "SOC evening", "SOC wieczorem", "SOC am Abend" },   // T_SOC_EVENING
+  { "Včera", "Yesterday", "Wczoraj", "Gestern" },   // T_YESTERDAY
+  { "Max zátěže", "Max load", "Maks. obciąż.", "Maximallast" },   // T_MAX_LOAD
+  { "Výroba a spotřeba", "Production and consumption", "Produkcja i zużycie", "Erzeugung und Verbrauch" },   // T_COMPARE_GRAPH
   { "SOC pod", "SOC below", "SOC poniżej", "SOC unter" },   // T_ALERT_SOC_LIMIT
   { "Teplota nad", "Temperature above", "Temperatura powyżej", "Temperatur über" },   // T_ALERT_TEMP_LIMIT
   { "Výpadek po", "Outage after", "Awaria po", "Ausfall nach" },   // T_ALERT_OFFLINE
   { "LED při chybě", "LED on error", "LED przy błędzie", "LED bei Fehler" },   // T_ERR_LED
+  { "Odběr ze sítě nad", "Grid import above", "Pobór z sieci powyżej", "Netzbezug über" },   // T_GRID_LIMIT
+  { "Po dobu", "For", "Przez", "Für" },   // T_GRID_TIME
+  { "NVS volné položky", "NVS free entries", "Wolne wpisy NVS", "NVS freie Einträge" },   // T_NVS_FREE
   { "červená", "red", "czerwona", "rot" },   // T_RED
   { "modrá", "blue", "niebieska", "blau" },   // T_BLUE
   { "oranžová", "orange", "pomarańczowa", "orange" },   // T_ORANGE
@@ -366,6 +409,7 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "Ušetřeno", "Saved", "Zaoszcz.", "Gespart" },   // T_SAVED
   { "Plán", "Plan", "Plan", "Plan" },   // T_PLAN
   { "Skutečnost", "Actual", "Rzeczywistość", "Tatsächlich" },   // T_ACTUAL
+  { "Plán vs. Skutečnost", "Plan vs. Actual", "Plan vs. rzeczywistość", "Plan vs. Ist" },   // T_PLAN_VS_ACTUAL
   { "Roční plán", "Year plan", "Plan roczny", "Jahresplan" },   // T_YEAR_PLAN
   { "Venkovní teplota", "Outside temperature", "Temperatura zewn.", "Außentemperatur" },   // T_OUT_TEMP
   { "Dnes", "Today", "Dziś", "Heute" },   // T_TODAY

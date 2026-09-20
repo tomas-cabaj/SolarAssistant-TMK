@@ -24,6 +24,8 @@ BS = chr(92)
 
 D = os.path.dirname(os.path.abspath(__file__)) + os.sep
 src = io.open(D + "SolarAssistant-TMK.ino", encoding="utf-8").read()
+for header in ("UiStyle.h", "WeatherIcons.h", "UiIcons.h"):
+    src += NL + io.open(D + header, encoding="utf-8").read()
 lang = io.open(D + "Lang.h", encoding="utf-8").read()
 
 problems = []

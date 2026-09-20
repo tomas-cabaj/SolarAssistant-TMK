@@ -3,9 +3,9 @@
 A graphical wall monitor for photovoltaic systems, running on the
 **ESP32-3248S035R** (3.5" touch display). It reads data from
 [Solar Assistant](https://solar-assistant.io/) through its REST API and shows
-it across seventeen portrait screens.
+it across nineteen portrait screens.
 
-Firmware **v2.00** · Author: Cabaj Tomáš · 2026
+Firmware **v2.01** · Author: Cabaj Tomáš · 2026
 
 *Other languages: [Čeština](README.md) · [Deutsch](README.de.md)*
 *Detailed list of screens and features: [FEATURES.md](FEATURES.md)*
@@ -28,7 +28,7 @@ Firmware **v2.00** · Author: Cabaj Tomáš · 2026
 |---|---|---|
 | ![History](images/09-historie.png) | ![Savings](images/10-uspory.png) | ![Settings](images/13-nastaveni2.png) |
 
-**[All 17 screens on one sheet](images/vsechny-obrazovky.png)**
+**[All 19 screens on one sheet](images/vsechny-obrazovky.png)**
 
 ---
 
@@ -52,7 +52,7 @@ Firmware **v2.00** · Author: Cabaj Tomáš · 2026
 
 ## Features
 
-- **17 screens** – overview, battery, solar, grid and load, weather, inverter,
+- **19 screens** – overview, battery, solar, grid and load, weather, inverter,
   power and temperature charts, history, savings, forecast, settings and errors
 - **Daily 0–24 h chart** – the peak of every ten-minute slot, bucketed by real
   NTP time; an average would hide short draws
@@ -191,12 +191,10 @@ version 2.0.x or 3.x.
 | Board | **ESP32 Dev Module** |
 | Upload Speed | 921600 |
 | Flash Size | 4MB (32Mb) |
-| **Partition Scheme** | **Huge APP (3MB No OTA/1MB SPIFFS)** |
+| **Partition Scheme** | **Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)** |
 | PSRAM | Disabled |
 
-> **Partition Scheme must be Huge APP.** Wi-Fi, HTTPClient, ArduinoJson,
-> TFT_eSPI, the embedded font and OTA together do not fit the default layout;
-> the build fails with `text section exceeds available space`.
+> OTA requires **Minimal SPIFFS** with two 1.9MB application slots.
 
 ---
 
@@ -428,9 +426,12 @@ SolaAssistant-TMK/
 ├── SolarAssistant-TMK.ino  main sketch
 ├── FontUi.h                smooth font as a byte array (generated)
 ├── Lang.h                  translation table (generated)
+├── UiIcons.h               RGB565 bitmap icons (generated)
 ├── User_Setup_CYD.h        TFT_eSPI config – gets copied into the library
 ├── DejaVuSans-Bold.ttf     source typeface for the generator
 ├── make_vlw.py             font generator
+├── make_ui_icons.py        icon generator using the supplied 4×4 sheet
+├── assets/                 original icon source sheet
 ├── render.py               screenshot renderer
 ├── screens.py              screenshot definitions with sample data
 ├── images/                 rendered screenshots (generated)
@@ -464,7 +465,7 @@ own free licence, see `LICENSE_DEJAVU.txt`.
 | Symptom | Cause / fix |
 |---|---|
 | Build stops at `#error` | Stale `User_Setup.h` in the library – copy it again |
-| `text section exceeds available space` | Partition Scheme → Huge APP (3MB) |
+| `text section exceeds available space` | Check ESP32 Dev Module and current libraries |
 | White screen, backlight on | Wrong driver – check `ST7796_DRIVER` |
 | Screen stays dark | `TFT_BL` must be 27 |
 | Nothing is drawn at all | `USE_HSPI_PORT` missing – display would run on VSPI |

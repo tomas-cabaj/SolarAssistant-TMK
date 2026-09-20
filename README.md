@@ -2,9 +2,9 @@
 
 Grafický nástěnný monitor fotovoltaiky pro **ESP32-3248S035R** (3,5" dotykový
 displej). Čte data ze [Solar Assistant](https://solar-assistant.io/) přes jeho
-REST API a zobrazuje je na sedmnácti obrazovkách na výšku.
+REST API a zobrazuje je na devatenácti obrazovkách na výšku.
 
-Firmware **v2.00** · Autor: Cabaj Tomáš · 2026
+Firmware **v2.01** · Autor: Cabaj Tomáš · 2026
 
 *Další jazyky: [English](README.en.md) · [Deutsch](README.de.md)*
 *Podrobný seznam obrazovek a funkcí: [FEATURES.md](FEATURES.md)*
@@ -19,27 +19,53 @@ Firmware **v2.00** · Autor: Cabaj Tomáš · 2026
 |---|---|---|
 | ![Přehled](images/00-prehled.png) | ![Baterie](images/01-baterie.png) | ![Doběh](images/02-dobeh.png) |
 
-| Solár | Síť a zátěž | Počasí |
+| Solár | Síť a zátěž | Měnič |
 |---|---|---|
-| ![Solár](images/03-solar.png) | ![Síť a zátěž](images/04-sit-zatez.png) | ![Počasí](images/05-pocasi.png) |
+| ![Solár](images/03-solar.png) | ![Síť a zátěž](images/04-sit-zatez.png) | ![Měnič](images/06-menic.png) |
 
-| Měnič | Grafy | Teploty |
+| Počasí | Grafy | Teploty |
 |---|---|---|
-| ![Měnič](images/06-menic.png) | ![Grafy](images/07-grafy.png) | ![Teploty](images/08-teploty.png) |
+| ![Počasí](images/05-pocasi.png) | ![Grafy](images/07-grafy.png) | ![Teploty](images/08-teploty.png) |
 
 | Historie | Úspory | Predikce úspor |
 |---|---|---|
 | ![Historie](images/09-historie.png) | ![Úspory](images/10-uspory.png) | ![Predikce](images/11-predikce.png) |
 
-| Nastavení | Nastavení 2 | Chyby a výpadky |
+| Dnes a včera | Návratnost | Chyby a výpadky |
 |---|---|---|
-| ![Nastavení](images/12-nastaveni.png) | ![Nastavení 2](images/13-nastaveni2.png) | ![Chyby a výpadky](images/14-chyby.png) |
+| ![Dnes a včera](images/16-dnes-vcera.png) | ![Návratnost](images/18-navratnost.png) | ![Chyby a výpadky](images/14-chyby.png) |
 
-| Upozornění | O aplikaci | |
+| Upozornění | Nastavení | Nastavení 2 |
 |---|---|---|
-| ![Upozornění](images/15-upozorneni.png) | ![O aplikaci](images/16-o-aplikaci.png) | |
+| ![Upozornění](images/15-upozorneni.png) | ![Nastavení](images/12-nastaveni.png) | ![Nastavení 2](images/13-nastaveni2.png) |
 
-[Všech 17 obrazovek na jednom listu](images/vsechny-obrazovky.png)
+![O aplikaci](images/17-o-aplikaci.png)
+
+[Všech 19 obrazovek na jednom listu](images/vsechny-obrazovky.png)
+
+### Počasí a vzhled
+
+Počasí rozlišuje ikonami den/noc, oblačnost, mlhu, srážky a bouřky. Oranžovo-modrý
+pruh pod oblačností ukazuje podíl délky dne a noci; procenta a odpovídající
+délky jsou ve stejných barvách. Všechny stránky používají společný styl karet.
+
+[Přehled ikon počasí ve dne a v noci](images/weather-icons.png)
+
+[Přehled bitmapových ikon rozhraní](images/ui-icons-38.png)
+
+### Ovládání návratnosti
+
+Stránka Návratnost je nezávislá na API. Investici a využitou
+energii upravíte tlačítky − / +. Klepnutím na horní část bloku měníte krok
+1 / 10 / 100 / 1 000 / 10 000; u energie je krok vždy v kWh, i při zobrazení MWh.
+Klepnutím na datum jej aktivujete. Vyberte den, měsíc nebo rok a upravte jej
+tlačítky − / +. Zadejte datum, od kterého byla uvedená energie nasbírána.
+
+Vrácená částka = energie × aktuální cena z Nastavení. Změna ceny přepočítá
+celou návratnost. Odhad zbývajících let vychází z průměru od zadaného data;
+nezohledňuje sezónnost ani budoucí změny cen. Bez platného času, kladné
+investice a energie nebo při dnešním/budoucím počátku se odhad nezobrazí.
+Hodnoty přežijí restart; při neúspěšném uložení se zobrazí chyba a změna se vrátí.
 
 ---
 
@@ -63,7 +89,7 @@ Firmware **v2.00** · Autor: Cabaj Tomáš · 2026
 
 ## Co to umí
 
-- **17 obrazovek** – přehled, baterie, solár, síť a zátěž, počasí, měnič,
+- **19 obrazovek** – přehled, baterie, solár, síť a zátěž, počasí, měnič,
   výkonové a teplotní grafy, historie, úspory, predikce, nastavení a chyby
 - **Denní graf 0–24 h** – špička každého desetiminutového úseku podle reálného
   času z NTP; průměr by krátké odběry schoval
@@ -201,12 +227,11 @@ Systems), verze 2.0.x nebo 3.x.
 | Board | **ESP32 Dev Module** |
 | Upload Speed | 921600 |
 | Flash Size | 4MB (32Mb) |
-| **Partition Scheme** | **Huge APP (3MB No OTA/1MB SPIFFS)** |
+| **Partition Scheme** | **Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)** |
 | PSRAM | Disabled |
 
-> **Partition Scheme musí být Huge APP.** Wi-Fi, HTTPClient, ArduinoJson,
-> TFT_eSPI, vlastní font i OTA se do výchozího rozdělení paměti nevejdou
-> a překlad skončí chybou `text section exceeds available space`.
+> Pro OTA musí být zvoleno schéma **Minimal SPIFFS**. Má dvě aplikační oblasti
+> po 1,9 MB; jedna běží a druhá slouží pro novou verzi firmwaru.
 
 ---
 
@@ -419,9 +444,20 @@ písmu 2 a rozvržení obrazovek se nerozsypalo.
 
 ## OTA
 
-Po připojení k síti se deska hlásí jako síťový port. V Arduino IDE ji najdete
-v **Tools → Port** pod názvem `esp32-solar-lcd` a nahrajete normálně tlačítkem
-Upload, bez kabelu. Během aktualizace se na displeji ukáže průběh v procentech.
+Po připojení k síti se deska nabízí přes mDNS jako `esp32-solar-lcd.local`.
+Pokud mDNS funguje, objeví se v **Tools → Port** v Arduino IDE a lze ji nahrát
+normálně tlačítkem Upload, bez kabelu. Během aktualizace se na displeji ukáže
+průběh v procentech.
+
+Pokud se síťový port neobjeví (časté při PC na Ethernetu a ESP na Wi-Fi),
+spusťte v PowerShellu ze složky projektu:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Nahrat-OTA.ps1
+```
+
+Skript se zeptá na IP adresu a OTA heslo, zkompiluje správnou OTA variantu a
+nahrání provede přímo přes IP. Nepotřebuje Bonjour ani mDNS.
 
 **První nahrání musí proběhnout přes USB.**
 
@@ -437,9 +473,12 @@ SolaAssistant-TMK/
 ├── SolarAssistant-TMK.ino  hlavní skeč
 ├── FontUi.h                smooth font jako pole bajtů (generovaný)
 ├── Lang.h                  překladová tabulka (generovaná)
+├── UiIcons.h               bitmapové ikony RGB565 (generované)
 ├── User_Setup_CYD.h        konfigurace TFT_eSPI – kopíruje se do knihovny
 ├── DejaVuSans-Bold.ttf     zdrojové písmo pro generátor
 ├── make_vlw.py             generátor fontu
+├── make_ui_icons.py        generátor ikon z dodané sady 4×4
+├── assets/                 původní zdrojová sada ikon
 ├── render.py               vykreslovač náhledů obrazovek
 ├── screens.py              definice náhledů s ukázkovými daty
 ├── images/                 náhledy obrazovek (generované)
@@ -472,7 +511,7 @@ volnou licenci, viz `LICENSE_DEJAVU.txt`.
 | Projev | Příčina / oprava |
 |---|---|
 | Překlad selže na `#error` | V knihovně je starý `User_Setup.h` – zkopírovat znovu |
-| `text section exceeds available space` | Partition Scheme → Huge APP (3MB) |
+| `text section exceeds available space` | Ověřit desku ESP32 Dev Module a aktuální knihovny |
 | Bílá obrazovka, podsvícení svítí | Špatný ovladač – ověřit `ST7796_DRIVER` |
 | Obrazovka zůstává tmavá | `TFT_BL` musí být 27 |
 | Kresba se nezobrazuje vůbec | Chybí `USE_HSPI_PORT` – displej by jel na VSPI |
