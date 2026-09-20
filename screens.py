@@ -4,6 +4,53 @@ import sys, os, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from render import *
 
+ENGLISH = "--en" in sys.argv
+if ENGLISH:
+    OUT = D + "images-en/"
+
+# Preklad textu v nahledech bez duplikovani definic vsech obrazovek.
+# EN: Translate preview text without duplicating every screen definition.
+_EN_REPLACEMENTS = {
+    "PŘEHLED": "OVERVIEW", "BATERIE": "BATTERY", "DOBĚH BATERIE": "BATTERY RUNTIME",
+    "SOLÁR": "SOLAR", "SÍŤ A ZÁTĚŽ": "GRID & LOAD", "MĚNIČ": "INVERTER",
+    "POČASÍ": "WEATHER", "GRAFY": "CHARTS", "TEPLOTY": "TEMPERATURES",
+    "HISTORIE": "HISTORY", "ÚSPORY": "SAVINGS", "PREDIKCE ÚSPOR": "SAVINGS FORECAST",
+    "DNES A VČERA": "TODAY & YESTERDAY", "NÁVRATNOST": "PAYBACK",
+    "CHYBY A VÝPADKY": "ERRORS & OUTAGES", "UPOZORNĚNÍ": "ALERTS",
+    "NASTAVENÍ 2": "SETTINGS 2", "NASTAVENÍ": "SETTINGS", "O APLIKACI": "ABOUT",
+    "Měnič": "Inverter", "Solární PV": "Solar PV", "Síť": "Grid", "Baterie": "Battery",
+    "Predikce": "Forecast", "Dnes": "Today", "Měsíc": "Month", "Rok": "Year",
+    "Vyrobeno": "Produced", "Zbývá": "Remaining", "Ušetřeno": "Saved",
+    "Výroba": "Production", "Spotřeba": "Consumption", "Nabito": "Charged", "Vybito": "Discharged",
+    "Soběstačnost": "Self-sufficiency", "proti včerejšku": "vs. yesterday",
+    "Plán": "Plan", "Skutečnost": "Actual", "Roční plán": "Year plan",
+    "Predikce úspor": "Savings forecast", "Plán vs. Skutečnost": "Plan vs. Actual",
+    "Predikce úspor": "Savings forecast", "predikce úspor": "savings forecast",
+    "Nabito dnes": "Charged today", "Vybito dnes": "Discharged today",
+    "Zbývá v baterii": "Battery remaining",
+    "Napětí": "Voltage", "Proud": "Current", "Výkon": "Power", "Zátěž": "Load",
+    "Zatížení měniče": "Inverter load", "Frekvence": "Frequency", "Odběr": "Import",
+    "Dodáno": "Export", "Vlastní spotřeba měniče": "Inverter self-consumption",
+    "Počasí": "Weather", "Teplota": "Temperature", "Historie": "History",
+    "Upozornění": "Alerts", "Chyby": "Errors", "Výpadky": "Outages",
+    "Nastavení": "Settings", "O aplikaci": "About", "Volná paměť": "Free memory",
+    "Vráceno": "Repaid", "Provoz od": "Operating since", "Odhad do splacení": "Estimated payback",
+    "čas běhu": "uptime", "Signál": "Signal", "Wi-Fi síť": "Wi-Fi network",
+    "OTA název": "OTA name", "RESTART ZAŘÍZENÍ": "RESTART DEVICE",
+    "Maximum dne": "Daily maximum", "Min dnes": "Min today", "SOC večer": "SOC evening",
+    "Dnes a včera": "Today & yesterday", "Max zátěže": "Max load",
+    "NABÍJÍ SE": "CHARGING", "VYBÍJÍ SE": "DISCHARGING",
+    "za 12 s": "in 12 s", "do Serialu": "to Serial", "porty cíle": "target ports",
+}
+_ORIGINAL_TXT = Screen.txt
+def _translated_txt(self, text, x, y, font=F13, col=C_TXT, datum="TL"):
+    if ENGLISH and isinstance(text, str):
+        for source in sorted(_EN_REPLACEMENTS, key=len, reverse=True):
+            target = _EN_REPLACEMENTS[source]
+            text = text.replace(source, target)
+    return _ORIGINAL_TXT(self, text, x, y, font, col, datum)
+Screen.txt = _translated_txt
+
 # ---- fiktivni data -------------------------------------------------------
 pv_power, load_power, grid_power, batt_power = 1840, 620, 0, 1180
 soc, batt_v, batt_a, capacity = 78, 27.4, 43.1, 9.6
@@ -23,6 +70,11 @@ TITLES = {
  5:"MĚNIČ", 6:"POČASÍ", 7:"GRAFY", 8:"TEPLOTY", 9:"HISTORIE", 10:"ÚSPORY",
  11:"PREDIKCE ÚSPOR", 12:"DNES A VČERA", 13:"NÁVRATNOST", 14:"CHYBY A VÝPADKY",
  15:"UPOZORNĚNÍ", 16:"NASTAVENÍ", 17:"NASTAVENÍ 2", 18:"O APLIKACI"}
+if ENGLISH:
+    TITLES = {0:"SolarAssistant-TMK", 1:"BATTERY", 2:"BATTERY RUNTIME", 3:"SOLAR", 4:"GRID & LOAD",
+              5:"INVERTER", 6:"WEATHER", 7:"CHARTS", 8:"TEMPERATURES", 9:"HISTORY", 10:"SAVINGS",
+              11:"SAVINGS FORECAST", 12:"TODAY & YESTERDAY", 13:"PAYBACK", 14:"ERRORS & OUTAGES",
+              15:"ALERTS", 16:"SETTINGS", 17:"SETTINGS 2", 18:"ABOUT"}
 
 PAGE_ICONS = {1:3, 2:8, 3:1, 4:2, 5:0, 6:6, 7:7, 8:5, 9:8,
               10:9, 11:10, 12:14, 13:15, 14:12, 15:13, 16:11,

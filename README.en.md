@@ -18,17 +18,17 @@ Firmware **v2.01** · Author: Cabaj Tomáš · 2026
 
 | Overview | Battery | Charts |
 |---|---|---|
-| ![Overview](images/00-prehled.png) | ![Battery](images/01-baterie.png) | ![Charts](images/07-grafy.png) |
+| ![Overview](images-en/00-prehled.png) | ![Battery](images-en/01-baterie.png) | ![Charts](images-en/07-grafy.png) |
 
 | Runtime | Solar | Weather |
 |---|---|---|
-| ![Runtime](images/02-dobeh.png) | ![Solar](images/03-solar.png) | ![Weather](images/05-pocasi.png) |
+| ![Runtime](images-en/02-dobeh.png) | ![Solar](images-en/03-solar.png) | ![Weather](images-en/05-pocasi.png) |
 
 | History | Savings | Settings |
 |---|---|---|
-| ![History](images/09-historie.png) | ![Savings](images/10-uspory.png) | ![Settings](images/13-nastaveni2.png) |
+| ![History](images-en/09-historie.png) | ![Savings](images-en/10-uspory.png) | ![Settings](images-en/13-nastaveni2.png) |
 
-**[All 19 screens on one sheet](images/vsechny-obrazovky.png)**
+**[All 19 screens on one sheet](images-en/vsechny-obrazovky.png)**
 
 ---
 
