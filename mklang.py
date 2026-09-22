@@ -22,7 +22,8 @@ T = [
  ("ROI_WAIT", "Chybí data / čas", "Need data / time", "Brak danych / czasu", "Daten / Zeit fehlen"),
  ("ROI_SAVE_ERR", "Chyba uložení", "Save failed", "Błąd zapisu", "Speichern fehlgeschlagen"),
  ("APP",        "SolarAssistant-TMK","SolarAssistant-TMK","SolarAssistant-TMK","SolarAssistant-TMK"),
- ("S_BATT",     "BATERIE","BATTERY","BATERIA","BATTERIE"),
+("S_BATT",     "BATERIE","BATTERY","BATERIA","BATTERIE"),
+("S_BATT_LIFE", "ŽIVOTNOST BATERIÍ", "BATTERY LIFE", "ŻYWOTNOŚĆ BATERII", "BATTERIELEBENSDAUER"),
  ("S_SOLAR",    "SOLÁR","SOLAR","SOLAR","SOLAR"),
  ("S_GRID",     "SÍŤ A ZÁTĚŽ","GRID & LOAD","SIEĆ I OBCIĄŻ.","NETZ & LAST"),
  ("S_WEATH",    "POČASÍ","WEATHER","POGODA","WETTER"),
@@ -76,7 +77,10 @@ T = [
  ("PANEL_T",    "Teplota panelů","Panel temp","Temp. paneli","Paneltemperatur"),
 
  ("INV_TEMP",   "teplota měniče","inverter temp","temp. falownika","WR-Temperatur"),
- ("POWER_USE",  "Využití výkonu","Power usage","Wykorzystanie mocy","Auslastung"),
+("POWER_USE",  "Využití výkonu","Power usage","Wykorzystanie mocy","Auslastung"),
+("INV_EFF",    "Účinnost měniče", "Inverter efficiency", "Sprawność falownika", "Wechselrichterwirkungsgrad"),
+("INV_EFF_AVG", "Denní průměr", "Daily average", "Średnia dzienna", "Tagesdurchschnitt"),
+("INV_EFF_RANGE", "Minimum / maximum", "Minimum / maximum", "Minimum / maksimum", "Minimum / Maximum"),
  ("MAX_POWER",  "Max výkon","Max power","Moc maks.","Max. Leistung"),
  ("APPARENT",   "Zdánlivý výkon","Apparent power","Moc pozorna","Scheinleistung"),
  ("BUS_V",      "Bus napětí","Bus voltage","Napięcie szyny","Bus-Spannung"),
@@ -240,7 +244,14 @@ T = [
  ("DAYS31",     "31 dní","31 days","31 dni","31 Tage"),
  ("MONTHS12",   "12 měsíců","12 months","12 miesięcy","12 Monate"),
  ("PREDICTED",  "předpoklad","predicted","prognoza","Prognose"),
- ("TAP_PERIOD", "změna klepnutím","tap to change","dotknij, aby zmienić","antippen ändert"),
+("TAP_PERIOD", "změna klepnutím","tap to change","dotknij, aby zmienić","antippen ändert"),
+("BAT_GROUP", "Skupina", "Group", "Grupa", "Gruppe"),
+("BAT_ADDED", "Přidáno", "Added", "Dodano", "Hinzugefügt"),
+("BAT_CYCLES", "cyklů", "cycles", "cykli", "Zyklen"),
+("BAT_HEALTH", "Zdraví baterie", "Battery health", "Stan baterii", "Batteriezustand"),
+("BAT_BANK_AVG", "Průměr banky", "Bank average", "Średnia banki", "Batteriebank-Durchschnitt"),
+("BAT_REPLACE", "Výměna", "Replacement", "Wymiana", "Austausch"),
+("BAT_EST", "Odhad výměny", "Replacement estimate", "Szacowana wymiana", "Austauschprognose"),
 ]
 
 LANGS = ["CZ", "EN", "PL", "DE"]

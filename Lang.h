@@ -23,6 +23,7 @@ enum {
   T_ROI_SAVE_ERR,
   T_APP,
   T_S_BATT,
+  T_S_BATT_LIFE,
   T_S_SOLAR,
   T_S_GRID,
   T_S_WEATH,
@@ -71,6 +72,9 @@ enum {
   T_PANEL_T,
   T_INV_TEMP,
   T_POWER_USE,
+  T_INV_EFF,
+  T_INV_EFF_AVG,
+  T_INV_EFF_RANGE,
   T_MAX_POWER,
   T_APPARENT,
   T_BUS_V,
@@ -222,6 +226,13 @@ enum {
   T_MONTHS12,
   T_PREDICTED,
   T_TAP_PERIOD,
+  T_BAT_GROUP,
+  T_BAT_ADDED,
+  T_BAT_CYCLES,
+  T_BAT_HEALTH,
+  T_BAT_BANK_AVG,
+  T_BAT_REPLACE,
+  T_BAT_EST,
   STR_N
 };
 
@@ -240,6 +251,7 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "Chyba uložení", "Save failed", "Błąd zapisu", "Speichern fehlgeschlagen" },   // T_ROI_SAVE_ERR
   { "SolarAssistant-TMK", "SolarAssistant-TMK", "SolarAssistant-TMK", "SolarAssistant-TMK" },   // T_APP
   { "BATERIE", "BATTERY", "BATERIA", "BATTERIE" },   // T_S_BATT
+  { "ŽIVOTNOST BATERIÍ", "BATTERY LIFE", "ŻYWOTNOŚĆ BATERII", "BATTERIELEBENSDAUER" },   // T_S_BATT_LIFE
   { "SOLÁR", "SOLAR", "SOLAR", "SOLAR" },   // T_S_SOLAR
   { "SÍŤ A ZÁTĚŽ", "GRID & LOAD", "SIEĆ I OBCIĄŻ.", "NETZ & LAST" },   // T_S_GRID
   { "POČASÍ", "WEATHER", "POGODA", "WETTER" },   // T_S_WEATH
@@ -288,6 +300,9 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "Teplota panelů", "Panel temp", "Temp. paneli", "Paneltemperatur" },   // T_PANEL_T
   { "teplota měniče", "inverter temp", "temp. falownika", "WR-Temperatur" },   // T_INV_TEMP
   { "Využití výkonu", "Power usage", "Wykorzystanie mocy", "Auslastung" },   // T_POWER_USE
+  { "Účinnost měniče", "Inverter efficiency", "Sprawność falownika", "Wechselrichterwirkungsgrad" },   // T_INV_EFF
+  { "Denní průměr", "Daily average", "Średnia dzienna", "Tagesdurchschnitt" },   // T_INV_EFF_AVG
+  { "Minimum / maximum", "Minimum / maximum", "Minimum / maksimum", "Minimum / Maximum" },   // T_INV_EFF_RANGE
   { "Max výkon", "Max power", "Moc maks.", "Max. Leistung" },   // T_MAX_POWER
   { "Zdánlivý výkon", "Apparent power", "Moc pozorna", "Scheinleistung" },   // T_APPARENT
   { "Bus napětí", "Bus voltage", "Napięcie szyny", "Bus-Spannung" },   // T_BUS_V
@@ -439,6 +454,13 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "12 měsíců", "12 months", "12 miesięcy", "12 Monate" },   // T_MONTHS12
   { "předpoklad", "predicted", "prognoza", "Prognose" },   // T_PREDICTED
   { "změna klepnutím", "tap to change", "dotknij, aby zmienić", "antippen ändert" },   // T_TAP_PERIOD
+  { "Skupina", "Group", "Grupa", "Gruppe" },   // T_BAT_GROUP
+  { "Přidáno", "Added", "Dodano", "Hinzugefügt" },   // T_BAT_ADDED
+  { "cyklů", "cycles", "cykli", "Zyklen" },   // T_BAT_CYCLES
+  { "Zdraví baterie", "Battery health", "Stan baterii", "Batteriezustand" },   // T_BAT_HEALTH
+  { "Průměr banky", "Bank average", "Średnia banki", "Batteriebank-Durchschnitt" },   // T_BAT_BANK_AVG
+  { "Výměna", "Replacement", "Wymiana", "Austausch" },   // T_BAT_REPLACE
+  { "Odhad výměny", "Replacement estimate", "Szacowana wymiana", "Austauschprognose" },   // T_BAT_EST
 };
 
 const char* const LANG_NAME[LANG_N] = { "Čeština", "English", "Polski", "Deutsch" };

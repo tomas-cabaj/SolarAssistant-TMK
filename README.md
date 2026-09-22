@@ -2,9 +2,9 @@
 
 Grafický nástěnný monitor fotovoltaiky pro **ESP32-3248S035R** (3,5" dotykový
 displej). Čte data ze [Solar Assistant](https://solar-assistant.io/) přes jeho
-REST API a zobrazuje je na devatenácti obrazovkách na výšku.
+REST API a zobrazuje je na dvaceti obrazovkách na výšku.
 
-Firmware **v2.01** · Autor: Cabaj Tomáš · 2026
+Firmware **v2.02** · Autor: Cabaj Tomáš · 2026
 
 *Další jazyky: [English](README.en.md) · [Deutsch](README.de.md)*
 *Podrobný seznam obrazovek a funkcí: [FEATURES.md](FEATURES.md)*
@@ -41,7 +41,7 @@ Firmware **v2.01** · Autor: Cabaj Tomáš · 2026
 
 ![O aplikaci](images/17-o-aplikaci.png)
 
-[Všech 19 obrazovek na jednom listu](images/vsechny-obrazovky.png)
+[Všech 20 obrazovek na jednom listu](images/vsechny-obrazovky.png)
 
 ### Počasí a vzhled
 
@@ -89,7 +89,7 @@ Hodnoty přežijí restart; při neúspěšném uložení se zobrazí chyba a zm
 
 ## Co to umí
 
-- **19 obrazovek** – přehled, baterie, solár, síť a zátěž, počasí, měnič,
+- **20 obrazovek** – přehled, baterie, životnost baterií, solár, síť a zátěž, počasí, měnič,
   výkonové a teplotní grafy, historie, úspory, predikce, nastavení a chyby
 - **Denní graf 0–24 h** – špička každého desetiminutového úseku podle reálného
   času z NTP; průměr by krátké odběry schoval

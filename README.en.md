@@ -3,9 +3,9 @@
 A graphical wall monitor for photovoltaic systems, running on the
 **ESP32-3248S035R** (3.5" touch display). It reads data from
 [Solar Assistant](https://solar-assistant.io/) through its REST API and shows
-it across nineteen portrait screens.
+it across twenty portrait screens.
 
-Firmware **v2.01** · Author: Cabaj Tomáš · 2026
+Firmware **v2.02** · Author: Cabaj Tomáš · 2026
 
 *Other languages: [Čeština](README.md) · [Deutsch](README.de.md)*
 *Detailed list of screens and features: [FEATURES.md](FEATURES.md)*
@@ -28,7 +28,7 @@ Firmware **v2.01** · Author: Cabaj Tomáš · 2026
 |---|---|---|
 | ![History](images-en/09-historie.png) | ![Savings](images-en/10-uspory.png) | ![Settings](images-en/13-nastaveni2.png) |
 
-**[All 19 screens on one sheet](images-en/vsechny-obrazovky.png)**
+**[All 20 screens on one sheet](images-en/vsechny-obrazovky.png)**
 
 ---
 
@@ -52,7 +52,7 @@ Firmware **v2.01** · Author: Cabaj Tomáš · 2026
 
 ## Features
 
-- **19 screens** – overview, battery, solar, grid and load, weather, inverter,
+- **20 screens** – overview, battery, battery life, solar, grid and load, weather, inverter,
   power and temperature charts, history, savings, forecast, settings and errors
 - **Daily 0–24 h chart** – the peak of every ten-minute slot, bucketed by real
   NTP time; an average would hide short draws

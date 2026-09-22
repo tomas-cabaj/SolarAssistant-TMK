@@ -9,11 +9,11 @@
  *
  *  ---------------------------------------------------------------------
  *  CZ: Cte data ze Solar Assistant pres jeho REST API a zobrazuje je na
- *      devatenacti obrazovkach. Prepina se tlacitky dole: [<] [domu] [>],
+ *      dvaceti obrazovkach. Prepina se tlacitky dole: [<] [domu] [>],
  *      na uvodni strance se da kliknout primo na kterykoli blok.
  *
  *  EN: Reads data from Solar Assistant over its REST API and shows it on
- *      nineteen screens. Switched by the buttons at the bottom:
+ *      twenty screens. Switched by the buttons at the bottom:
  *      [<] [home] [>]; on the overview any block can be tapped directly.
  *  ---------------------------------------------------------------------
  *
@@ -88,7 +88,7 @@
 // EN: In Arduino IDE the board shows up under Tools > Port as a network port.
 // Heslo nechte prazdne pro aktualizaci bez hesla.
 // EN: Leave the password empty for updates without one.
-#define FW_VERSION   "2.01"
+#define FW_VERSION   "2.02"
 
 // ================= NASTAVENI / SETTINGS ================================================
 // Vychozi hodnoty. Vse nize se da zmenit na strance NASTAVENI 2 a uklada
@@ -205,9 +205,9 @@ void tAs(const char* str, int32_t x, int32_t y, uint8_t font) {
 #define CONT_Y      42          // zacatek obsahu / start of the content area
 #define CONT_H     (NAV_Y - CONT_Y - 4)
 
-#define SCREENS     19
+#define SCREENS     20
 enum ScreenId {
-  SCR_OVERVIEW, SCR_BATTERY, SCR_RUNTIME, SCR_SOLAR, SCR_GRID, SCR_INVERTER,
+  SCR_OVERVIEW, SCR_BATTERY, SCR_BATTERY_LIFE, SCR_RUNTIME, SCR_SOLAR, SCR_GRID, SCR_INVERTER,
   SCR_WEATHER, SCR_GRAPHS, SCR_TEMPERATURES, SCR_HISTORY, SCR_SAVINGS,
   SCR_FORECAST, SCR_COMPARE, SCR_ROI, SCR_ERRORS, SCR_ALERTS, SCR_SETTINGS,
   SCR_SETTINGS2, SCR_ABOUT
@@ -230,6 +230,8 @@ float w_pv_predicted = 0, w_pv_temp_pred = 0, w_code = 0, w_wind = 0;
 
 float i_temp = 0, i_max_va = 0, i_pv_voltage = 0, i_pv_current = 0;
 float i_load_va = 0, i_float_v = 0, i_absorption_v = 0, i_max_charge_a = 0;
+float invEffSum = 0, invEffMin = 100, invEffMax = 0;
+uint16_t invEffCount = 0;
 
 // tabulka prirazeni: topic -> promenna / mapping table: topic -> variable
 struct Metric { const char* topic; float* var; };
@@ -361,6 +363,19 @@ uint8_t activeErrors = 0;
 bool apiInvalid = false;
 uint32_t gridHighSince = 0;
 
+// Vsechny konfigurační indexy v jednom bajtovem bloku.
+// EN: All configuration indexes in one byte-sized block.
+struct ConfigPersist {
+  uint8_t version, lang, fetch, sleep, bright, range, green, orange, rot;
+  uint8_t blink, price, curr, alertSoc, alertTemp, stale, errLed, gridLimit, gridTime;
+};
+static_assert(sizeof(ConfigPersist) == 18, "Config block layout changed");
+
+// Chybovy log a vcerejsi souhrn se ukladaji atomicky jako jeden blok.
+// EN: Error log and yesterday summary are stored atomically as one block.
+struct ErrorPersist { ErrorEntry entries[ERR_LOG_N]; uint8_t count, pos; };
+static_assert(sizeof(ErrorPersist) < 260, "Error block is too large");
+
 // millis() pretece po 49 dnech. Rozdily dvou casu to prezijou samy, ale doba
 // behu ne - proto se preteceni pocitaji zvlast.
 // EN: millis() wraps after 49 days. Differences of two stamps survive that on
@@ -380,6 +395,7 @@ enum GaugeMetric { GM_PV, GM_LOAD, GM_GRID, GM_BATT, GM_SOC, GM_CLOUD, GM_TEMP, 
 // before local enums. GaugeMetric constants keep call sites readable.
 float gaugeTarget(uint8_t metric);
 float animatedGauge(uint8_t metric);
+float savedYear();
 void startGaugeAnimation(const float previous[GM_COUNT], bool hadData);
 void drawAnimatedGauges();
 struct GaugeAnimation {
@@ -423,9 +439,29 @@ uint32_t socPrevMs = 0;
 #define DAY_N 144
 int16_t dPv[DAY_N], dLoad[DAY_N], dBatt[DAY_N];
 int16_t dInvTemp[DAY_N], dOutTemp[DAY_N];
+// Napeti baterie po 0,1 V, ulozene s posunem -20,0 V kvuli uspore NVS.
+// EN: Battery voltage in 0.1 V units, stored with a -20.0 V offset to save NVS.
+uint8_t dBattVoltage[DAY_N];
+// Vcerejsi teploty jsou jen po 1 °C; -128 znamena chybejici vzorek.
+// EN: Yesterday temperatures use one degree; -128 marks a missing sample.
+int8_t yInvTemp[DAY_N], yOutTemp[DAY_N];
 uint8_t dSoc[DAY_N];
 bool    dHas[DAY_N];
 int     curSlot = -1, curDay = -1;
+
+// Kompaktni blok aktualniho dne; stare klice zustavaji jen pro migraci.
+// EN: Compact current-day block; legacy keys remain only for migration.
+struct DailyPersist {
+  int16_t pv[DAY_N], load[DAY_N], batt[DAY_N], invTemp[DAY_N], outTemp[DAY_N];
+  uint8_t battVoltage[DAY_N];
+  uint8_t soc[DAY_N], has[DAY_N];
+  int16_t peakPv, maxLoad, maxBattPwr;
+  uint8_t minSoc;
+  int16_t minInvTemp, maxInvTemp, minOutTemp, maxOutTemp;
+  int16_t minInvSlot, maxInvSlot, minOutSlot, maxOutSlot;
+  int32_t day;
+};
+static_assert(sizeof(DailyPersist) <= 1900, "Daily NVS block is too large");
 
 // denni maximum vykonu baterie v obou smerech, kvuli meritku grafu
 // EN: daily peak battery power in both directions, for the chart scale
@@ -451,6 +487,18 @@ int      hdCount = 0, hdPos = 0;
 uint16_t hmPv[12], hmLoad[12], hmSave[12];
 uint16_t hmBIn[12], hmBOut[12], hmGrid[12];
 int      sumYear = -1;
+
+// Slouceny blok denni a mesicni historie pro jeden NVS zapis.
+// EN: Combined daily and monthly history block for one NVS write.
+struct SummaryPersist {
+  uint16_t hdPv[HIST_DAYS], hdLoad[HIST_DAYS], hdSave[HIST_DAYS];
+  uint16_t hdBIn[HIST_DAYS], hdBOut[HIST_DAYS], hdGrid[HIST_DAYS];
+  uint8_t hdDayNum[HIST_DAYS];
+  uint16_t hmPv[12], hmLoad[12], hmSave[12];
+  uint16_t hmBIn[12], hmBOut[12], hmGrid[12];
+  int32_t hdCount, hdPos, sumYear;
+};
+static_assert(sizeof(SummaryPersist) < 900, "Summary NVS block is too large");
 
 // Sezonni plan vlastni spotreby po mesicich v desetinach kWh.
 // EN: Seasonal plan of self-consumed energy by month, in tenths of kWh.
@@ -497,6 +545,63 @@ struct DaySummary {
   uint8_t day, valid;
 };
 DaySummary yesterday = {};
+struct YesterdayPersist {
+  DaySummary summary;
+  int8_t invTemp[DAY_N], outTemp[DAY_N];
+};
+static_assert(sizeof(YesterdayPersist) < 330, "Yesterday block is too large");
+
+// Skupiny baterii podle zadanych dat / battery groups by the supplied dates.
+struct BatteryGroup { uint8_t day, month; uint16_t year, initialCycles; };
+BatteryGroup batteryGroups[4] = {
+  {26, 3, 2022, 821}, {13, 12, 2022, 690},
+  {14, 3, 2023, 644}, {18, 9, 2025, 185}
+};
+uint16_t batteryRatedCycles = 6000;
+uint8_t batteryWarnPct = 80;
+float batteryCycleBaseOut = 0;
+bool batteryCycleBaseValid = false;
+int8_t batterySelectedGroup = 0;
+uint8_t batteryCycleStep = 1;
+struct BatteryPersist {
+  BatteryGroup groups[4];
+  uint16_t ratedCycles;
+  uint8_t warnPct;
+  float baseOut;
+  uint8_t baseValid;
+};
+static_assert(sizeof(BatteryPersist) < 60, "Battery block is too large");
+
+// Ulozi parametry bateriovych skupin do jednoho kompatibilniho bloku NVS.
+// EN: Store battery-group parameters in one compatible NVS block.
+void batterySave() {
+  BatteryPersist data;
+  memcpy(data.groups, batteryGroups, sizeof(batteryGroups));
+  data.ratedCycles = batteryRatedCycles;
+  data.warnPct = batteryWarnPct;
+  data.baseOut = batteryCycleBaseOut;
+  data.baseValid = batteryCycleBaseValid ? 1 : 0;
+  prefs.putBytes("batV2", &data, sizeof(data));
+}
+
+// Nacte ulozene parametry a opravi nesmyslne hodnoty po migraci.
+// EN: Load stored parameters and clamp invalid values after migration.
+void batteryLoad() {
+  if (prefs.getBytesLength("batV2") != sizeof(BatteryPersist)) return;
+  BatteryPersist data;
+  if (prefs.getBytes("batV2", &data, sizeof(data)) != sizeof(data)) return;
+  memcpy(batteryGroups, data.groups, sizeof(batteryGroups));
+  batteryRatedCycles = constrain(data.ratedCycles, (uint16_t)1000, (uint16_t)20000);
+  batteryWarnPct = constrain(data.warnPct, (uint8_t)50, (uint8_t)99);
+  batteryCycleBaseOut = data.baseOut >= 0 ? data.baseOut : 0;
+  batteryCycleBaseValid = data.baseValid != 0;
+  for (uint8_t i = 0; i < 4; ++i) {
+    if (batteryGroups[i].day < 1 || batteryGroups[i].day > 31) batteryGroups[i].day = 1;
+    if (batteryGroups[i].month < 1 || batteryGroups[i].month > 12) batteryGroups[i].month = 1;
+    if (batteryGroups[i].year < 2000 || batteryGroups[i].year > 2100) batteryGroups[i].year = 2025;
+    if (batteryGroups[i].initialCycles > batteryRatedCycles * 2U) batteryGroups[i].initialCycles = batteryRatedCycles;
+  }
+}
 
 
 
@@ -518,12 +623,24 @@ const char* errorName(uint8_t type) {
 }
 
 void errorSave() {
-  prefs.putBytes("errLog", errorLog, sizeof(errorLog));
-  prefs.putUChar("errCnt", errCount);
-  prefs.putUChar("errPos", errPos);
+  ErrorPersist data;
+  memcpy(data.entries, errorLog, sizeof(errorLog));
+  data.count = errCount; data.pos = errPos;
+  prefs.putBytes("errV2", &data, sizeof(data));
 }
 
 void errorLoad() {
+  if (prefs.getBytesLength("errV2") == sizeof(ErrorPersist)) {
+    ErrorPersist data;
+    if (prefs.getBytes("errV2", &data, sizeof(data)) == sizeof(data)) {
+      memcpy(errorLog, data.entries, sizeof(errorLog));
+      errCount = data.count; errPos = data.pos;
+      if (errCount > ERR_LOG_N) errCount = 0;
+      if (errPos >= ERR_LOG_N) errPos = 0;
+      return;
+    }
+  }
+  // Migrace stareho logu / migration from legacy error keys.
   prefs.getBytes("errLog", errorLog, sizeof(errorLog));
   errCount = prefs.getUChar("errCnt", 0);
   errPos = prefs.getUChar("errPos", 0);
@@ -1134,6 +1251,14 @@ void scrOverview() {
   tCz(TR(T_REMAINING), 306, 206);
   tft.setTextDatum(TL_DATUM);
 
+  // Rocni soucet uspor ze stranky Uspory / yearly savings total from Savings.
+  static char yearSavedBuf[40];
+  snprintf(yearSavedBuf, sizeof(yearSavedBuf), "%s: %s", TR(T_SAVED), fmtMoney(savedYear()));
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_PV, C_CARD);
+  tCz(yearSavedBuf, 160, 218);
+  tft.setTextDatum(TL_DATUM);
+
   // posuvnik mezi obema hodnotami / slider between the two values
   bar(104, 192, 112, 12, w_pv_progress / 100.0f, C_PV);
 
@@ -1160,6 +1285,8 @@ void scrOverview() {
 // ===========================================================================
 // OBRAZOVKA 1 - BATERIE / SCREEN 1 - BATTERY
 // ===========================================================================
+float dayBattOut();
+
 void scrBattery() {
   const int cx = 160, cy = 208, r = 118, th = 22;
   float shownSoc = animatedGauge(GM_SOC);
@@ -1396,28 +1523,37 @@ void scrWeather() {
 // ===========================================================================
 // OBRAZOVKA 5 - MENIC / SCREEN 5 - INVERTER
 // ===========================================================================
+// Hruby okamzity odhad ucinnosti z vykonu vstupu a vystupu menice.
+// EN: Rough instantaneous efficiency estimate from inverter input and output power.
+float inverterEfficiency() {
+  float input = max(0.0f, v_pv_power) + max(0.0f, -v_batt_power);
+  float output = max(0.0f, v_load_power - max(0.0f, v_grid_power));
+  if (input < 50.0f || output <= 0.0f) return -1.0f;
+  return constrain(output * 100.0f / input, 0.0f, 100.0f);
+}
+
 void scrInverter() {
   float shownTemp = animatedGauge(GM_TEMP);
   uint16_t tc = shownTemp > 70 ? C_GRID : (shownTemp > 55 ? C_PV : C_BATT);
-  halfGaugeU(160, 160, 100, 20, shownTemp, 100, tc,
+  halfGaugeU(160, 145, 86, 18, shownTemp, 100, tc,
              fmt("%.1f", i_temp), "°C", TR(T_INV_TEMP));
 
   if (i_temp > CFG_ALERT_TEMP) {
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(C_GRID, C_BG);
-    tCz(TR(T_ALERT_TEMP), SCR_W / 2, 176);
+    tCz(TR(T_ALERT_TEMP), SCR_W / 2, 161);
     tft.setTextDatum(TL_DATUM);
   }
 
   tft.setTextColor(C_DIM, C_BG);
-  tCz(TR(T_POWER_USE), 6, 186);
+  tCz(TR(T_POWER_USE), 6, 174);
   tft.setTextDatum(TR_DATUM);
   tft.setTextColor(C_LOAD, C_BG);
-  tAs(fmt("%.0f %%", v_load_pct), 314, 186, 2);
+  tAs(fmt("%.0f %%", v_load_pct), 314, 174, 2);
   tft.setTextDatum(TL_DATUM);
-  bar(6, 204, 308, 14, v_load_pct / 100.0f, v_load_pct > 80 ? C_GRID : C_LOAD);
+  bar(6, 192, 308, 14, v_load_pct / 100.0f, v_load_pct > 80 ? C_GRID : C_LOAD);
 
-  const int sy = 228, sh = 50, sg = 5;
+  const int sy = 212, sh = 50, sg = 5;
   statBox(6,   sy,           150, sh, TR(T_MAX_POWER),     fmt("%.0f VA", i_max_va), C_TXT);
   statBox(164, sy,           150, sh, TR(T_APPARENT),fmt("%.0f VA", i_load_va), C_TXT);
   statBox(6,   sy+sh+sg,     150, sh, TR(T_BUS_V),    fmt("%.0f V", v_bus_voltage), C_TXT);
@@ -1427,10 +1563,123 @@ void scrInverter() {
 
   int by = sy + 3 * (sh + sg);
   tft.setTextColor(C_DIM, C_BG);
-  tCz(TR(T_SELF_USE), 6, by);
+  tCz(TR(T_INV_EFF_AVG), 6, by);
   tft.setTextDatum(TR_DATUM);
   tft.setTextColor(C_TXT, C_BG);
-  tAs(fmtPower(v_system_power), 314, by, 2);
+  float effAvg = invEffCount ? invEffSum / invEffCount : -1.0f;
+  tAs(effAvg >= 0 ? fmt("%.0f %%", effAvg) : "--", 314, by, 2);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(C_DIM, C_BG);
+  tCz(TR(T_INV_EFF_RANGE), 6, by + 18);
+  tft.setTextDatum(TR_DATUM);
+  tft.setTextColor(C_WEATH, C_BG);
+  char rangeText[24];
+  if (invEffCount) snprintf(rangeText, sizeof(rangeText), "%.0f / %.0f %%", invEffMin, invEffMax);
+  else snprintf(rangeText, sizeof(rangeText), "--");
+  tAs(rangeText, 314, by + 18, 2);
+  tft.setTextDatum(TL_DATUM);
+}
+
+// ===========================================================================
+// OBRAZOVKA 2 - ZIVOTNOST BATERII / SCREEN 2 - BATTERY LIFE
+// ===========================================================================
+float batteryExtraCycles() {
+  if (!batteryCycleBaseValid || v_batt_energy_out <= batteryCycleBaseOut) return 0.0f;
+  // Osm baterii 12 V / 100 Ah tvori zhruba 19.2 kWh uloziste; jeden cyklus
+  // Osm baterii 12 V / 100 Ah tvori zhruba 19.2 kWh uloziste; jeden cyklus
+  // EN: Eight 12 V / 100 Ah batteries form roughly a 19.2 kWh bank; one cycle
+  // zde pocitame konzervativne z 9.6 kWh vybijeni (50 % hloubka vybijeni).
+  return (v_batt_energy_out - batteryCycleBaseOut) / 9.6f;
+}
+
+// Zalozi pocatecni stav citace a zachyti jeho pozdejsi reset.
+// EN: Establish the counter baseline and catch a later counter reset.
+void batteryUpdateBase() {
+  if (v_batt_energy_out < 0) return;
+  if (!batteryCycleBaseValid) {
+    if (v_batt_energy_out > 0.01f) {
+      batteryCycleBaseOut = v_batt_energy_out;
+      batteryCycleBaseValid = true;
+      batterySave();
+    }
+  } else if (v_batt_energy_out + 0.01f < batteryCycleBaseOut) {
+    batteryCycleBaseOut = v_batt_energy_out;
+    batterySave();
+  }
+}
+
+float batteryGroupCycles(uint8_t index) {
+  if (index >= 4) return 0.0f;
+  return batteryGroups[index].initialCycles + batteryExtraCycles();
+}
+
+float batteryAverageCyclesPerDay() {
+  float energy = dayBattOut();
+  for (int i = 0; i < HIST_DAYS; ++i) energy += hdBOut[i] / 10.0f;
+  float days = hdCount > 0 ? (float)hdCount + 1.0f : 1.0f;
+  float result = energy / (9.6f * days);
+  // Bez dlouhe historie nepovolime nerealisticky pomaly odhad.
+  // EN: Without enough history, do not allow an unrealistically slow estimate.
+  return max(1.0f, result);
+}
+
+float batteryHealth(uint8_t index) {
+  return constrain(100.0f * (1.0f - batteryGroupCycles(index) / batteryRatedCycles), 0.0f, 100.0f);
+}
+
+int batteryReplacementYear(uint8_t index) {
+  float remain = max(0.0f, batteryRatedCycles - batteryGroupCycles(index));
+  float years = remain / max(0.01f, batteryAverageCyclesPerDay()) / 365.0f;
+  struct tm now;
+  if (!getLocalTime(&now, 5)) return 0;
+  return now.tm_year + 1900 + (int)ceilf(years);
+}
+
+void scrBatteryLife() {
+  for (uint8_t i = 0; i < 4; ++i) {
+    int y = 48 + i * 58;
+    uiPanel(6, y, 308, 52, batteryHealth(i) < batteryWarnPct ? C_GRID : C_BATT);
+    char label[24];
+    snprintf(label, sizeof(label), "%s %c", TR(T_BAT_GROUP), 'A' + i);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(C_DIM, C_CARD); tCz(label, 14, y + 5);
+    char dateText[16];
+    snprintf(dateText, sizeof(dateText), "%02u.%02u.%u", batteryGroups[i].day,
+             batteryGroups[i].month, batteryGroups[i].year);
+    czOn();
+    int dateWidth = tft.textWidth(dateText);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(C_WEATH, C_CARD); tCz(dateText, 160 - dateWidth / 2, y + 5);
+    char cyclesText[24];
+    snprintf(cyclesText, sizeof(cyclesText), "%.0f / %u", batteryGroupCycles(i), batteryRatedCycles);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextColor(C_TXT, C_CARD); tCz(cyclesText, 306, y + 5);
+    float ratio = batteryGroupCycles(i) / batteryRatedCycles;
+    bar(14, y + 39, 210, 7, ratio, batteryHealth(i) < batteryWarnPct ? C_GRID : C_BATT);
+    char replaceText[28];
+    int replaceYear = batteryReplacementYear(i);
+    snprintf(replaceText, sizeof(replaceText), "%s %d", TR(T_BAT_REPLACE), replaceYear);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(C_DIM, C_CARD); tCz(replaceText, 14, y + 25);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextColor(C_TXT, C_CARD); tCz(fmt("%.0f %%", batteryHealth(i)), 306, y + 25);
+    tft.setTextDatum(TL_DATUM);
+  }
+
+  uiPanel(6, 294, 308, 60, C_LINE);
+  char selectedText[32];
+  snprintf(selectedText, sizeof(selectedText), "%s %c", TR(T_BAT_GROUP), 'A' + batterySelectedGroup);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_TXT, C_CARD); tCz(selectedText, 160, 304);
+  uiPanel(12, 316, 88, 32, C_PV);
+  uiPanel(112, 316, 96, 32, C_LINE);
+  uiPanel(220, 316, 88, 32, C_PV);
+  tft.setTextColor(C_PV, C_CARD);
+  tAs(batteryCycleStep == 1 ? "-1" : "-10", 56, 332, 4);
+  tft.setTextColor(C_DIM, C_CARD);
+  tAs(batteryCycleStep == 1 ? "1x" : "10x", 160, 332, 2);
+  tft.setTextColor(C_PV, C_CARD);
+  tAs(batteryCycleStep == 1 ? "+1" : "+10", 264, 332, 4);
   tft.setTextDatum(TL_DATUM);
 }
 
@@ -1482,6 +1731,26 @@ void plotDaySoc(int gy, int gh, uint16_t col) {
   }
 }
 
+// Modra krivka napeti pouziva pevnou osu 22-30 V, aby se graf mezi dny nemenil.
+// EN: The blue voltage line uses a fixed 22-30 V axis so the chart stays comparable.
+void plotDayBatteryVoltage(int gy, int gh, uint16_t col) {
+  const int minV = 220, maxV = 300;
+  int prevX = -1, prevY = -1;
+  bool gap = false;
+  for (int i = 0; i < DAY_N; ++i) {
+    if (!dHas[i] || dBattVoltage[i] == 0) {
+      if (prevX >= 0) gap = true;
+      continue;
+    }
+    int x = PLOT_X0 + i * PLOT_STEP;
+    int value = constrain((int)dBattVoltage[i] + 200, minV, maxV);
+    int y = gy + gh - 1 - (int)((long)(value - minV) * (gh - 2) / (maxV - minV));
+    if (prevX >= 0) tft.drawLine(prevX, prevY, x, y, gap ? C_GRID : col);
+    else tft.drawPixel(x, y, col);
+    prevX = x; prevY = y; gap = false;
+  }
+}
+
 // Prerusovana cara ukazuje optimisticky stav do zapadu slunce: cela zbyvajici
 // predikovana energie FVE by mohla nabit baterii.
 void plotSocForecast(int gy, int gh) {
@@ -1518,6 +1787,22 @@ void plotDayRange(int gy, int gh, int16_t* data, int minV, int maxV, uint16_t co
     else            tft.drawPixel(x, y, col);
     prevX = x; prevY = y;
     gap = false;
+  }
+}
+
+// Vykresli vcerejsi teplotu z komprimovanych vzorku.
+// EN: Draw yesterday's temperature from compressed samples.
+void plotYesterdayTemp(int gy, int gh, const int8_t* data, int minV, int maxV) {
+  if (maxV <= minV) return;
+  int prevX = -1, prevY = -1;
+  for (int i = 0; i < DAY_N; ++i) {
+    if (data[i] == -128) { prevX = prevY = -1; continue; }
+    int x = PLOT_X0 + i * PLOT_STEP;
+    int value = constrain((int)data[i] * 10, minV, maxV);
+    int y = gy + gh - 1 - (int)((long)(value - minV) * (gh - 2) / (maxV - minV));
+    if (prevX >= 0) tft.drawLine(prevX, prevY, x, y, C_DIM);
+    else tft.drawPixel(x, y, C_DIM);
+    prevX = x; prevY = y;
   }
 }
 
@@ -1693,15 +1978,27 @@ void scrGraphs() {
   // stav nabiti / state of charge
   graphFrame(336, 60, TR(T_SOC), fmt("%.0f %%", v_soc), C_BATT);
   plotDaySoc(336, 60, C_BATT);
+  plotDayBatteryVoltage(336, 60, C_LOAD);
   plotSocForecast(336, 60);
   yAxis(336, 60, "100", "50", "0");
+  // Druha osa patri modre napetove krivce / the second axis belongs to voltage.
+  tft.setTextDatum(ML_DATUM);
+  tft.setTextColor(C_LOAD, C_BG);
+  tCz("30", 319, 344); tCz("26", 319, 366); tCz("22", 319, 390);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(C_BATT, C_BG); tCz("SOC", 116, 318);
+  tft.setTextColor(C_LOAD, C_BG); tCz("V", 154, 318);
   if (graphCursor.active && graphCursor.screenId == screen && graphCursor.graphId == 2) {
     int slot = graphCursor.slot;
-    char selected[32];
-    snprintf(selected, sizeof(selected), "%02d:%02d  %u %%",
-             slot / 6, (slot % 6) * 10, (unsigned)dSoc[slot]);
+    char selected[48];
+    snprintf(selected, sizeof(selected), "%02d:%02d  %u %%  %.1f V",
+             slot / 6, (slot % 6) * 10, (unsigned)dSoc[slot],
+             dBattVoltage[slot] ? (dBattVoltage[slot] + 200) / 10.0f : 0.0f);
     int socY = 336 + 59 - (int)((long)dSoc[slot] * 58 / 100);
-    graphCursorOverlay(2, 336, 60, selected, socY, C_BATT, -1, C_BATT);
+    int voltageY = dBattVoltage[slot] > 0
+                 ? 336 + 59 - (int)((long)(constrain((int)dBattVoltage[slot] + 200, 220, 300) - 220) * 58 / 80)
+                 : -1;
+    graphCursorOverlay(2, 336, 60, selected, socY, C_BATT, voltageY, C_LOAD);
   }
 
   timeAxis(406);      // popisky 0 / 6 / 12 / 18 / 24 hodin / labels 0 / 6 / 12 / 18 / 24 hours
@@ -1733,6 +2030,7 @@ void scrTemperatures() {
   tft.setTextColor(C_DIM, C_BG); tCz(TR(T_MIN_MAX), 6, 47);
   tft.setTextDatum(TR_DATUM); tft.setTextColor(C_PV, C_BG); tCz(invExt, 314, 47); tft.setTextDatum(TL_DATUM);
   graphFrame(82, 120, TR(T_INV_TEMP), fmt("%.1f °C", i_temp), C_PV);
+  plotYesterdayTemp(82, 120, yInvTemp, 0, 1000);
   plotDayRange(82, 120, dInvTemp, 0, 1000, C_PV);
   yAxis(82, 120, "100", "50", "0");
   if (graphCursor.active && graphCursor.screenId == screen && graphCursor.graphId == 0) {
@@ -1748,6 +2046,7 @@ void scrTemperatures() {
   tft.setTextColor(C_DIM, C_BG); tCz(TR(T_MIN_MAX), 6, 237);
   tft.setTextDatum(TR_DATUM); tft.setTextColor(C_WEATH, C_BG); tCz(outExt, 314, 237); tft.setTextDatum(TL_DATUM);
   graphFrame(272, 120, TR(T_OUT_TEMP), fmt("%.1f °C", w_temp), C_WEATH);
+  plotYesterdayTemp(272, 120, yOutTemp, -200, 400);
   plotDayRange(272, 120, dOutTemp, -200, 400, C_WEATH);
   yAxis(272, 120, "40", "10", "-20");
   if (graphCursor.active && graphCursor.screenId == screen && graphCursor.graphId == 1) {
@@ -1871,6 +2170,12 @@ void scrHistory() {
     sBo += histRange == 2 && idx == lastMon ? monthWithToday(hmBOut[idx], dayBattOut()) : (histRange == 2 ? hmBOut[idx] : hdBOut[idx]);
   }
 
+  // Pri 12mesicnim pohledu pouzijeme stejnou funkci jako stranka Uspory,
+  // aby se obe obrazovky nikdy nerozesly kvuli rozdilnemu zaokrouhleni.
+  // EN: The 12-month view uses the same helper as Savings, so both screens
+  //     cannot diverge because of different rounding.
+  if (histRange == 2) sSv = lroundf(savedYear() * 10.0f);
+
   const int gx = 32, gy = 74, gw = 282, gh = 140;
   tft.drawRect(gx, gy, gw, gh, C_LINE);
   for (int k = 1; k < 4; k++) {
@@ -1977,6 +2282,7 @@ void scrSavings() {
   if (lastMon >= 0 && lastMon < 12) {
     yPv += dPvKwh; yLd += dLdKwh; ySv += dSave;
   }
+  ySv = savedYear();
 
   // zahlavi tabulky / table header
   const int rowH = 46;
@@ -2594,6 +2900,19 @@ void cfgClamp() {
 }
 
 void cfgLoad() {
+  if (prefs.getBytesLength("cfgV2") == sizeof(ConfigPersist)) {
+    ConfigPersist data;
+    if (prefs.getBytes("cfgV2", &data, sizeof(data)) == sizeof(data) && data.version == 2) {
+      lang = data.lang; iFetch = data.fetch; iSleep = data.sleep; iBright = data.bright;
+      iRange = data.range; iGreen = data.green; iOrange = data.orange; iRot = data.rot;
+      iBlink = data.blink; iPrice = data.price; iCurr = data.curr; iAlertSoc = data.alertSoc;
+      iAlertTemp = data.alertTemp; iStale = data.stale; iErrLed = data.errLed;
+      iGridLimit = data.gridLimit; iGridTime = data.gridTime;
+      cfgClamp();
+      return;
+    }
+  }
+  // Migrace starsich samostatnych klicu / migration from legacy separate keys.
   lang    = prefs.getUChar("lang",    LANG_CZ);
   iFetch  = prefs.getUChar("iFetch",  1);
   iSleep  = prefs.getUChar("iSleep",  2);
@@ -2615,23 +2934,10 @@ void cfgLoad() {
 }
 
 void cfgSave() {
-  prefs.putUChar("lang",    lang);
-  prefs.putUChar("iFetch",  iFetch);
-  prefs.putUChar("iSleep",  iSleep);
-  prefs.putUChar("iBright", iBright);
-  prefs.putUChar("iRange",  iRange);
-  prefs.putUChar("iGreen",  iGreen);
-  prefs.putUChar("iOrange", iOrange);
-  prefs.putUChar("iRot",    iRot);
-  prefs.putUChar("iBlink",  iBlink);
-  prefs.putUChar("iPrice",  iPrice);
-  prefs.putUChar("iCurr",   iCurr);
-  prefs.putUChar("iASoc",  iAlertSoc);
-  prefs.putUChar("iATemp", iAlertTemp);
-  prefs.putUChar("iStale", iStale);
-  prefs.putUChar("iELed",  iErrLed);
-  prefs.putUChar("iGridL", iGridLimit);
-  prefs.putUChar("iGridT", iGridTime);
+  ConfigPersist data = {2, lang, iFetch, iSleep, iBright, iRange, iGreen, iOrange, iRot,
+                        iBlink, iPrice, iCurr, iAlertSoc, iAlertTemp, iStale, iErrLed,
+                        iGridLimit, iGridTime};
+  prefs.putBytes("cfgV2", &data, sizeof(data));
 }
 
 // text hodnoty pro dany radek / value text for the given row
@@ -2968,7 +3274,7 @@ void screenWake() {
 // ===========================================================================
 struct ScreenDefinition { int title; void (*draw)(); };
 const ScreenDefinition screenDefinitions[] = {
-  {T_APP, scrOverview}, {T_S_BATT, scrBattery}, {T_S_RUNTIME, scrRuntime},
+  {T_APP, scrOverview}, {T_S_BATT, scrBattery}, {T_S_BATT_LIFE, scrBatteryLife}, {T_S_RUNTIME, scrRuntime},
   {T_S_SOLAR, scrSolar}, {T_S_GRID, scrGridLoad}, {T_S_INV, scrInverter},
   {T_S_WEATH, scrWeather}, {T_S_CHART, scrGraphs}, {T_S_TEMP, scrTemperatures},
   {T_S_HISTORY, scrHistory}, {T_S_SAVINGS, scrSavings}, {T_S_FORECAST, scrForecast},
@@ -2987,6 +3293,7 @@ const char* screenName(int i) {
 int pageIcon(int page) {
   switch (page) {
     case SCR_BATTERY: return UI_ICON_BATTERY;
+    case SCR_BATTERY_LIFE: return UI_ICON_BATTERY;
     case SCR_RUNTIME: return UI_ICON_HISTORY;
     case SCR_SOLAR: return UI_ICON_SOLAR;
     case SCR_GRID: return UI_ICON_GRID;
@@ -3222,13 +3529,13 @@ void drawAnimatedGauges() {
       break;
     }
     case SCR_INVERTER: {
-      tft.fillRect(44, 44, 232, 140, C_BG);
+      tft.fillRect(52, 44, 216, 122, C_BG);
       float temp = animatedGauge(GM_TEMP);
       uint16_t tc = temp > 70 ? C_GRID : (temp > 55 ? C_PV : C_BATT);
-      halfGaugeU(160, 160, 100, 20, temp, 100, tc, fmt("%.1f", i_temp), "°C", TR(T_INV_TEMP));
+      halfGaugeU(160, 145, 86, 18, temp, 100, tc, fmt("%.1f", i_temp), "°C", TR(T_INV_TEMP));
       if (i_temp > CFG_ALERT_TEMP) {
         tft.setTextDatum(MC_DATUM); tft.setTextColor(C_GRID, C_BG);
-        tCz(TR(T_ALERT_TEMP), SCR_W / 2, 176); tft.setTextDatum(TL_DATUM);
+        tCz(TR(T_ALERT_TEMP), SCR_W / 2, 161); tft.setTextDatum(TL_DATUM);
       }
       break;
     }
@@ -3266,6 +3573,7 @@ void pushHistory() {
     if (curDay >= 0) closeDay(t.tm_mday, lastMon);
     baseReset();   // novy den zacina od nuly / the new day starts from zero
     memset(dHas, 0, sizeof(dHas));
+    memset(dBattVoltage, 0, sizeof(dBattVoltage));
     curDay = t.tm_yday;
     curSlot = -1;
     peakPv = maxLoad = maxBattPwr = 0;
@@ -3273,6 +3581,7 @@ void pushHistory() {
     minInvTemp = minOutTemp = 32767;
     maxInvTemp = maxOutTemp = -32768;
     minInvSlot = maxInvSlot = minOutSlot = maxOutSlot = -1;
+    invEffSum = 0; invEffCount = 0; invEffMin = 100; invEffMax = 0;
     computeSun(t.tm_yday, tzOffsetMinutes());
   }
 
@@ -3343,6 +3652,8 @@ void pushHistory() {
   // stav nabiti je okamzity stav, prumerovat ho nema smysl
   // EN: the state of charge is instantaneous, averaging it makes no sense
   dSoc[slot] = (uint8_t)constrain(v_soc, 0.0f, 100.0f);
+  int voltageDeci = (int)lroundf(v_batt_voltage * 10.0f) - 200;
+  dBattVoltage[slot] = (uint8_t)constrain(voltageDeci, 1, 255);
   dInvTemp[slot] = (int16_t)constrain(roundf(i_temp * 10.0f), -32000.0f, 32000.0f);
   dOutTemp[slot] = (int16_t)constrain(roundf(w_temp * 10.0f), -32000.0f, 32000.0f);
   if (dInvTemp[slot] < minInvTemp) { minInvTemp = dInvTemp[slot]; minInvSlot = slot; }
@@ -3364,6 +3675,16 @@ void pushHistory() {
   }
 
   if (abs(bt) > maxBattPwr) maxBattPwr = abs(bt);
+
+  // Ucinnost se pocita jen z platnych vykonu a prumeruje se za den.
+  // EN: Efficiency is accumulated only from valid power values and averaged per day.
+  float eff = inverterEfficiency();
+  if (eff >= 0) {
+    invEffSum += eff;
+    if (eff < invEffMin) invEffMin = eff;
+    if (eff > invEffMax) invEffMax = eff;
+    if (invEffCount < 65535) invEffCount++;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -3372,25 +3693,34 @@ void pushHistory() {
 // EN: Stored in NVS, so they survive a power cut.
 // ---------------------------------------------------------------------------
 void sumSave() {
-  prefs.putBytes("hdPv",   hdPv,     sizeof(hdPv));
-  prefs.putBytes("hdLd",   hdLoad,   sizeof(hdLoad));
-  prefs.putBytes("hdSv",   hdSave,   sizeof(hdSave));
-  prefs.putBytes("hdBi",   hdBIn,    sizeof(hdBIn));
-  prefs.putBytes("hdBo",   hdBOut,   sizeof(hdBOut));
-  prefs.putBytes("hdGr",   hdGrid,   sizeof(hdGrid));
-  prefs.putBytes("hdDn",   hdDayNum, sizeof(hdDayNum));
-  prefs.putBytes("hmPv",   hmPv,     sizeof(hmPv));
-  prefs.putBytes("hmLd",   hmLoad,   sizeof(hmLoad));
-  prefs.putBytes("hmSv",   hmSave,   sizeof(hmSave));
-  prefs.putBytes("hmBi",   hmBIn,    sizeof(hmBIn));
-  prefs.putBytes("hmBo",   hmBOut,   sizeof(hmBOut));
-  prefs.putBytes("hmGr",   hmGrid,   sizeof(hmGrid));
-  prefs.putInt("hdCount",  hdCount);
-  prefs.putInt("hdPos",    hdPos);
-  prefs.putInt("sumYear",  sumYear);
+  SummaryPersist data;
+  memcpy(data.hdPv, hdPv, sizeof(hdPv)); memcpy(data.hdLoad, hdLoad, sizeof(hdLoad));
+  memcpy(data.hdSave, hdSave, sizeof(hdSave)); memcpy(data.hdBIn, hdBIn, sizeof(hdBIn));
+  memcpy(data.hdBOut, hdBOut, sizeof(hdBOut)); memcpy(data.hdGrid, hdGrid, sizeof(hdGrid));
+  memcpy(data.hdDayNum, hdDayNum, sizeof(hdDayNum));
+  memcpy(data.hmPv, hmPv, sizeof(hmPv)); memcpy(data.hmLoad, hmLoad, sizeof(hmLoad));
+  memcpy(data.hmSave, hmSave, sizeof(hmSave)); memcpy(data.hmBIn, hmBIn, sizeof(hmBIn));
+  memcpy(data.hmBOut, hmBOut, sizeof(hmBOut)); memcpy(data.hmGrid, hmGrid, sizeof(hmGrid));
+  data.hdCount = hdCount; data.hdPos = hdPos; data.sumYear = sumYear;
+  prefs.putBytes("sumV2", &data, sizeof(data));
 }
 
 void sumLoad() {
+  if (prefs.getBytesLength("sumV2") == sizeof(SummaryPersist)) {
+    SummaryPersist data;
+    if (prefs.getBytes("sumV2", &data, sizeof(data)) == sizeof(data)) {
+      memcpy(hdPv, data.hdPv, sizeof(hdPv)); memcpy(hdLoad, data.hdLoad, sizeof(hdLoad));
+      memcpy(hdSave, data.hdSave, sizeof(hdSave)); memcpy(hdBIn, data.hdBIn, sizeof(hdBIn));
+      memcpy(hdBOut, data.hdBOut, sizeof(hdBOut)); memcpy(hdGrid, data.hdGrid, sizeof(hdGrid));
+      memcpy(hdDayNum, data.hdDayNum, sizeof(hdDayNum));
+      memcpy(hmPv, data.hmPv, sizeof(hmPv)); memcpy(hmLoad, data.hmLoad, sizeof(hmLoad));
+      memcpy(hmSave, data.hmSave, sizeof(hmSave)); memcpy(hmBIn, data.hmBIn, sizeof(hmBIn));
+      memcpy(hmBOut, data.hmBOut, sizeof(hmBOut)); memcpy(hmGrid, data.hmGrid, sizeof(hmGrid));
+      hdCount = data.hdCount; hdPos = data.hdPos; sumYear = data.sumYear;
+      goto validate_summary;
+    }
+  }
+  // Migrace starších samostatných klíčů / migration from legacy separate keys.
   prefs.getBytes("hdPv",   hdPv,     sizeof(hdPv));
   prefs.getBytes("hdLd",   hdLoad,   sizeof(hdLoad));
   prefs.getBytes("hdSv",   hdSave,   sizeof(hdSave));
@@ -3407,6 +3737,7 @@ void sumLoad() {
   hdCount = prefs.getInt("hdCount", 0);
   hdPos   = prefs.getInt("hdPos",   0);
   sumYear = prefs.getInt("sumYear", -1);
+validate_summary:
   if (hdCount < 0 || hdCount > HIST_DAYS) hdCount = 0;
   if (hdPos   < 0 || hdPos   >= HIST_DAYS) hdPos  = 0;
 }
@@ -3488,14 +3819,42 @@ float savedToday() {
   return own * CFG_PRICE;
 }
 
+// Rocni uspora vcetne prubezneho dneska / yearly savings including today.
+float savedYear() {
+  float total = 0;
+  for (int i = 0; i < 12; ++i) total += hmSave[i] / 10.0f;
+  if (lastMon >= 0 && lastMon < 12) total += savedToday();
+  return total;
+}
+
 void satAdd(uint16_t& total, uint16_t value) {
   total = value > (uint16_t)(65535U - total) ? 65535U : total + value;
 }
 
-void yesterdaySummarySave() { prefs.putBytes("ySum", &yesterday, sizeof(yesterday)); }
+void yesterdaySummarySave() {
+  YesterdayPersist data;
+  data.summary = yesterday;
+  memcpy(data.invTemp, yInvTemp, sizeof(yInvTemp));
+  memcpy(data.outTemp, yOutTemp, sizeof(yOutTemp));
+  prefs.putBytes("yDayV2", &data, sizeof(data));
+}
 void yesterdaySummaryLoad() {
+  if (prefs.getBytesLength("yDayV2") == sizeof(YesterdayPersist)) {
+    YesterdayPersist data;
+    if (prefs.getBytes("yDayV2", &data, sizeof(data)) == sizeof(data)) {
+      yesterday = data.summary;
+      memcpy(yInvTemp, data.invTemp, sizeof(yInvTemp));
+      memcpy(yOutTemp, data.outTemp, sizeof(yOutTemp));
+      return;
+    }
+  }
+  // Migrace starsiho souhrnu / migration from legacy summary keys.
   size_t n = prefs.getBytes("ySum", &yesterday, sizeof(yesterday));
   if (n != sizeof(yesterday)) memset(&yesterday, 0, sizeof(yesterday));
+  size_t ni = prefs.getBytes("yitmp", yInvTemp, sizeof(yInvTemp));
+  size_t no = prefs.getBytes("yotmp", yOutTemp, sizeof(yOutTemp));
+  if (ni != sizeof(yInvTemp)) memset(yInvTemp, -128, sizeof(yInvTemp));
+  if (no != sizeof(yOutTemp)) memset(yOutTemp, -128, sizeof(yOutTemp));
 }
 
 // Uzavre prave skonceny den a zapise ho do historie.
@@ -3533,6 +3892,10 @@ void closeDay(int mday, int mon) {
   yesterday.minInv = minInvTemp; yesterday.maxInv = maxInvTemp;
   yesterday.minOut = minOutTemp; yesterday.maxOut = maxOutTemp;
   yesterday.day = (uint8_t)mday; yesterday.valid = 1;
+  for (int i = 0; i < DAY_N; ++i) {
+    yInvTemp[i] = dHas[i] ? (int8_t)constrain((int)lroundf(dInvTemp[i] / 10.0f), -127, 127) : -128;
+    yOutTemp[i] = dHas[i] ? (int8_t)constrain((int)lroundf(dOutTemp[i] / 10.0f), -127, 127) : -128;
+  }
   yesterdaySummarySave();
 
   sumSave();
@@ -3545,22 +3908,18 @@ void closeDay(int mday, int mon) {
 // Zapisuje se jen pri prechodu na novy desetiminutovy usek, tedy 144x denne.
 // EN: Written only when a new ten minute slot starts, so 144 times a day.
 void histSave() {
-  prefs.putInt("hday", curDay);
-  prefs.putBytes("hpv",   dPv,   sizeof(dPv));
-  prefs.putBytes("hload", dLoad, sizeof(dLoad));
-  prefs.putBytes("hbatt", dBatt, sizeof(dBatt));
-  prefs.putBytes("hitmp", dInvTemp, sizeof(dInvTemp));
-  prefs.putBytes("hotmp", dOutTemp, sizeof(dOutTemp));
-  prefs.putBytes("hsoc",  dSoc,  sizeof(dSoc));
-  prefs.putBytes("hhas",  dHas,  sizeof(dHas));
-  prefs.putShort("xpv",   peakPv);
-  prefs.putShort("xload", maxLoad);
-  prefs.putUChar("xsoc",  minSoc);
-  prefs.putShort("xbatt", maxBattPwr);
-  prefs.putShort("imin", minInvTemp); prefs.putShort("imax", maxInvTemp);
-  prefs.putShort("omin", minOutTemp); prefs.putShort("omax", maxOutTemp);
-  prefs.putShort("imins", minInvSlot); prefs.putShort("imaxs", maxInvSlot);
-  prefs.putShort("omins", minOutSlot); prefs.putShort("omaxs", maxOutSlot);
+  DailyPersist data;
+  memcpy(data.pv, dPv, sizeof(dPv)); memcpy(data.load, dLoad, sizeof(dLoad));
+  memcpy(data.batt, dBatt, sizeof(dBatt)); memcpy(data.invTemp, dInvTemp, sizeof(dInvTemp));
+  memcpy(data.outTemp, dOutTemp, sizeof(dOutTemp)); memcpy(data.soc, dSoc, sizeof(dSoc));
+  memcpy(data.battVoltage, dBattVoltage, sizeof(dBattVoltage));
+  memcpy(data.has, dHas, sizeof(dHas));
+  data.peakPv = peakPv; data.maxLoad = maxLoad; data.maxBattPwr = maxBattPwr;
+  data.minSoc = minSoc; data.minInvTemp = minInvTemp; data.maxInvTemp = maxInvTemp;
+  data.minOutTemp = minOutTemp; data.maxOutTemp = maxOutTemp;
+  data.minInvSlot = minInvSlot; data.maxInvSlot = maxInvSlot;
+  data.minOutSlot = minOutSlot; data.maxOutSlot = maxOutSlot; data.day = curDay;
+  prefs.putBytes("dayV2", &data, sizeof(data));
 }
 
 // Nacte historii, ale jen kdyz je ulozena z dnesniho dne.
@@ -3570,6 +3929,27 @@ void histLoad() {
   // bez casu nevime, jestli sedi den
   // EN: without the time we cannot tell if the day matches
   if (!getLocalTime(&t, 50)) return;
+  bool loaded = false;
+  if (prefs.getBytesLength("dayV2") == sizeof(DailyPersist)) {
+    DailyPersist data;
+    if (prefs.getBytes("dayV2", &data, sizeof(data)) == sizeof(data) && data.day == t.tm_yday) {
+      memcpy(dPv, data.pv, sizeof(dPv)); memcpy(dLoad, data.load, sizeof(dLoad));
+      memcpy(dBatt, data.batt, sizeof(dBatt)); memcpy(dInvTemp, data.invTemp, sizeof(dInvTemp));
+      memcpy(dOutTemp, data.outTemp, sizeof(dOutTemp)); memcpy(dSoc, data.soc, sizeof(dSoc));
+      memcpy(dBattVoltage, data.battVoltage, sizeof(dBattVoltage));
+      memcpy(dHas, data.has, sizeof(dHas));
+      peakPv = data.peakPv; maxLoad = data.maxLoad; maxBattPwr = data.maxBattPwr;
+      minSoc = data.minSoc; minInvTemp = data.minInvTemp; maxInvTemp = data.maxInvTemp;
+      minOutTemp = data.minOutTemp; maxOutTemp = data.maxOutTemp;
+      minInvSlot = data.minInvSlot; maxInvSlot = data.maxInvSlot;
+      minOutSlot = data.minOutSlot; maxOutSlot = data.maxOutSlot;
+      curDay = t.tm_yday; loaded = true;
+    }
+  }
+  if (loaded) {
+    Serial.println("historie dnesniho dne nactena z flash (V2)");
+    return;
+  }
   if (prefs.getInt("hday", -1) != t.tm_yday) {
     Serial.println("ulozena historie je z jineho dne, zahazuji");
     return;
@@ -3577,6 +3957,7 @@ void histLoad() {
   prefs.getBytes("hpv",   dPv,   sizeof(dPv));
   prefs.getBytes("hload", dLoad, sizeof(dLoad));
   prefs.getBytes("hbatt", dBatt, sizeof(dBatt));
+  memset(dBattVoltage, 0, sizeof(dBattVoltage));
   prefs.getBytes("hitmp", dInvTemp, sizeof(dInvTemp));
   prefs.getBytes("hotmp", dOutTemp, sizeof(dOutTemp));
   prefs.getBytes("hsoc",  dSoc,  sizeof(dSoc));
@@ -3980,6 +4361,30 @@ void handleTouch() {
     return;
   }
 
+  // Vyber skupiny baterii a rucni oprava pocatecniho odhadu cyklu.
+  // EN: Select a battery group and adjust its initial cycle estimate manually.
+  if (screen == SCR_BATTERY_LIFE && y < NAV_Y) {
+    if (y >= 48 && y < 280) {
+      batterySelectedGroup = constrain((int)((y - 48) / 58), 0, 3);
+      drawScreen();
+      return;
+    }
+    if (y >= 294 && y < 354) {
+      if (x < 105 && batteryGroups[batterySelectedGroup].initialCycles >= batteryCycleStep) {
+        batteryGroups[batterySelectedGroup].initialCycles -= batteryCycleStep;
+      } else if (x > 215 && batteryGroups[batterySelectedGroup].initialCycles < 20000 - batteryCycleStep) {
+        batteryGroups[batterySelectedGroup].initialCycles += batteryCycleStep;
+      } else if (x >= 105 && x <= 215) {
+        batteryCycleStep = batteryCycleStep == 1 ? 10 : 1;
+      } else {
+        return;
+      }
+      batterySave();
+      drawScreen();
+      return;
+    }
+  }
+
   // radky na strance NASTAVENI 2 / rows on the SETTINGS 2 screen
   // klepnuti na graf historie prepne zobrazene obdobi
   // EN: tapping the history chart switches the period shown
@@ -4067,6 +4472,7 @@ void setup() {
 
   prefs.begin("cyd", false);
   cfgLoad();
+  batteryLoad();
   roiLoad();
   errorLoad();
   sumLoad();
@@ -4102,7 +4508,7 @@ void setup() {
     dataOk = fetchData();
     if (dataOk) {
       errorStop(ERR_FETCH); errorStop(ERR_API);
-      lastOkFetch = millis(); haveFetch = true; pushHistory(); updateSocRate();
+      lastOkFetch = millis(); haveFetch = true; batteryUpdateBase(); pushHistory(); updateSocRate();
       if (v_soc < CFG_ALERT_SOC) errorStart(ERR_SOC); else errorStop(ERR_SOC);
       if (i_temp > CFG_ALERT_TEMP) errorStart(ERR_TEMP); else errorStop(ERR_TEMP);
       updateGridAlert();
@@ -4165,6 +4571,7 @@ void loop() {
       errorStop(ERR_API);
       lastOkFetch = millis();
       haveFetch   = true;
+      batteryUpdateBase();
       pushHistory();
       updateSocRate();
       if (v_soc < CFG_ALERT_SOC) errorStart(ERR_SOC); else errorStop(ERR_SOC);
