@@ -11,7 +11,13 @@ se změní a na GitHubu vznikne release pouze na výslovný pokyn autora.
 - Opraveno rozložení stránky Měnič, aby min/max nepřekrýval navigační tečky.
 - Do grafu SOC přidána modrá křivka napětí baterie s vlastní stupnicí.
 
-## Nezařazeno do vydání
+## v2.03
+
+- Vysoké napětí FV je pouze stavová informace: při překročení nastaveného
+  prahu se zobrazí ikona na hlavní stránce. Nezapisuje se jako chyba,
+  nespouští blikání LED ani červené zvýraznění.
+- Komentáře firmwaru byly aktualizovány a doplněny česko-anglické popisy
+  hlavních funkcí, smyček a částí programu.
 
 - Hlavní přehled pod ukazatelem predikce zobrazuje roční úsporu ze stránky Úspory.
 - Teplotní grafy si uchovávají včerejší měnič a venkovní teplotu po 1 °C jako

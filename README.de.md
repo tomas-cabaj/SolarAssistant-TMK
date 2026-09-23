@@ -5,7 +5,7 @@ Grafischer Wandmonitor für Photovoltaikanlagen auf Basis des
 [Solar Assistant](https://solar-assistant.io/) über dessen REST-API und stellt
 sie auf neunzehn Hochformat-Bildschirmen dar.
 
-Firmware **v2.01** · Autor: Cabaj Tomáš · 2026
+Firmware **v2.03** · Autor: Cabaj Tomáš · 2026
 
 *Weitere Sprachen: [Čeština](README.md) · [English](README.en.md)*
 *Ausführliche Liste der Bildschirme und Funktionen: [FEATURES.md](FEATURES.md)*
@@ -63,7 +63,7 @@ Firmware **v2.01** · Autor: Cabaj Tomáš · 2026
 - **Energiesparmodus** – Hintergrundbeleuchtung schaltet sich nach Inaktivität
   ab, Berührung weckt sie
 - **OTA** – Firmware-Update über WLAN, ohne Kabel
-- **Netzwerkdiagnose direkt im Gerät** – Porttest und Scan des ganzen Subnetzes
+- **Netzwerkdiagnose direkt im Gerät** – Gateway- und übliche API-Porttests
 - **Verlauf übersteht einen Neustart** – wird im NVS gespeichert
 - **Verlaufsdiagramm über 7 Tage, 31 Tage oder 12 Monate** – Antippen des
   Diagramms schaltet um
@@ -373,7 +373,6 @@ wird im NVS gespeichert und übersteht Neustart und Firmware-Update.
 |---|---|
 | **WERTE AUSGEBEN** | Holt Daten und gibt alle Topics seriell aus |
 | **VERBINDUNGSTEST** | Prüft das Gateway und übliche Ports am Wechselrichter |
-| **NETZ-SCAN** | Durchläuft `.1`–`.254` und sucht alles auf Port 80 |
 
 ---
 
@@ -480,7 +479,7 @@ DejaVu Sans hat eine eigene freie Lizenz, siehe `LICENSE_DEJAVU.txt`.
 | Rot und Blau vertauscht | `TFT_RGB_ORDER` zwischen `TFT_BGR` und `TFT_RGB` umschalten |
 | Touch reagiert nicht | `#define TOUCH_CS 33` fehlt |
 | Touch ist versetzt | Beim Einschalten Finger auf dem Display halten → Kalibrierung |
-| `HTTP-Fehler: -1` | TCP-Verbindung fehlgeschlagen – VERBINDUNGSTEST und NETZ-SCAN nutzen |
+| `HTTP-Fehler: -1` | TCP-Verbindung fehlgeschlagen – VERBINDUNGSTEST nutzen |
 | `HTTP-Fehler: 401` | Falscher API-Benutzername oder falsches Passwort |
 | `JSON-Fehler: NoMemory` | `DynamicJsonDocument(24576)` vergrößern (nur ArduinoJson 6) |
 | Diagramm leer, wartet auf Zeit | Kein NTP-Zugang – Gateway und DNS prüfen |
@@ -492,9 +491,7 @@ DejaVu Sans hat eine eigene freie Lizenz, siehe `LICENSE_DEJAVU.txt`.
 1. **VERBINDUNGSTEST** – antwortet nicht einmal das Gateway, hängt die Platine
    in einem Netz mit Client-Isolation (Gast-WLAN oder anderes VLAN) und
    erreicht das LAN überhaupt nicht
-2. **NETZ-SCAN** – findet, was wo lauscht; Solar Assistant kann per DHCP eine
-   andere IP bekommen haben
-3. Vom Rechner aus prüfen:
+2. Die Wechselrichter-IP im Router prüfen und vom Rechner aus testen:
    ```bash
    curl -v -u admin:passwort http://192.168.10.240/api/v1/metrics
    ```

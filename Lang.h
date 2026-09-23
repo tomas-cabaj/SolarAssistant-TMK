@@ -157,6 +157,7 @@ enum {
   T_ERR_API,
   T_ERR_COUNTER,
   T_ERR_GRID,
+  T_ERR_PV_VOLTAGE,
   T_NO_ERRORS,
   T_CLEAR_ERRORS,
   T_FAILURES,
@@ -170,6 +171,7 @@ enum {
   T_ALERT_OFFLINE,
   T_ERR_LED,
   T_GRID_LIMIT,
+  T_PV_VOLT_LIMIT,
   T_GRID_TIME,
   T_NVS_FREE,
   T_RED,
@@ -251,7 +253,7 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "Chyba uložení", "Save failed", "Błąd zapisu", "Speichern fehlgeschlagen" },   // T_ROI_SAVE_ERR
   { "SolarAssistant-TMK", "SolarAssistant-TMK", "SolarAssistant-TMK", "SolarAssistant-TMK" },   // T_APP
   { "BATERIE", "BATTERY", "BATERIA", "BATTERIE" },   // T_S_BATT
-  { "ŽIVOTNOST BATERIÍ", "BATTERY LIFE", "ŻYWOTNOŚĆ BATERII", "BATTERIELEBENSDAUER" },   // T_S_BATT_LIFE
+  { "ŽIVOTNOST", "LIFETIME", "ŻYWOTNOŚĆ", "LEBENSDAUER" },   // T_S_BATT_LIFE
   { "SOLÁR", "SOLAR", "SOLAR", "SOLAR" },   // T_S_SOLAR
   { "SÍŤ A ZÁTĚŽ", "GRID & LOAD", "SIEĆ I OBCIĄŻ.", "NETZ & LAST" },   // T_S_GRID
   { "POČASÍ", "WEATHER", "POGODA", "WETTER" },   // T_S_WEATH
@@ -385,6 +387,7 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "NEPLATNÁ DATA API", "INVALID API DATA", "BŁĘDNE DANE API", "UNGÜLTIGE API-DATEN" },   // T_ERR_API
   { "RESET POČÍTADLA", "COUNTER RESET", "RESET LICZNIKA", "ZÄHLER-RESET" },   // T_ERR_COUNTER
   { "DLOUHÝ ODBĚR ZE SÍTĚ", "LONG GRID IMPORT", "DŁUGI POBÓR Z SIECI", "LANGER NETZBEZUG" },   // T_ERR_GRID
+  { "Vysoké napětí FV (stav)", "High PV voltage (status)", "Wysokie napięcie PV (stan)", "Hohe PV-Spannung (Status)" },   // T_ERR_PV_VOLTAGE
   { "Bez zaznamenaných chyb", "No recorded errors", "Brak zapisanych błędów", "Keine gespeicherten Fehler" },   // T_NO_ERRORS
   { "SMAZAT SEZNAM CHYB", "CLEAR ERROR LIST", "WYCZYŚĆ LISTĘ BŁĘDÓW", "FEHLERLISTE LÖSCHEN" },   // T_CLEAR_ERRORS
   { "selhání", "failures", "błędy", "Fehler" },   // T_FAILURES
@@ -398,6 +401,7 @@ const char* const STRINGS[STR_N][LANG_N] = {
   { "Výpadek po", "Outage after", "Awaria po", "Ausfall nach" },   // T_ALERT_OFFLINE
   { "LED při chybě", "LED on error", "LED przy błędzie", "LED bei Fehler" },   // T_ERR_LED
   { "Odběr ze sítě nad", "Grid import above", "Pobór z sieci powyżej", "Netzbezug über" },   // T_GRID_LIMIT
+  { "FV ikona nad", "PV icon above", "Ikona PV powyżej", "PV-Symbol über" },   // T_PV_VOLT_LIMIT
   { "Po dobu", "For", "Przez", "Für" },   // T_GRID_TIME
   { "NVS volné položky", "NVS free entries", "Wolne wpisy NVS", "NVS freie Einträge" },   // T_NVS_FREE
   { "červená", "red", "czerwona", "rot" },   // T_RED

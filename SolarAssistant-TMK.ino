@@ -17,25 +17,26 @@
  *      [<] [home] [>]; on the overview any block can be tapped directly.
  *  ---------------------------------------------------------------------
  *
- *   0  PREHLED / OVERVIEW     karty, predikce, ukazatele
- *   1  BATERIE / BATTERY      SOC, napeti, proud, kapacita
- *   2  DOBEH   / RUNTIME      za jak dlouho bude plna nebo prazdna
- *   3  SOLAR   / SOLAR        vykon, prubeh dne, panely
- *   4  SIT     / GRID+LOAD    odber, zatez, frekvence, energie
- *   5  POCASI  / WEATHER      oblacnost, teplota, vychod a zapad slunce
- *   6  MENIC   / INVERTER     teplota, vykony, nabijeci napeti
- *   7  GRAFY   / CHARTS       dnesni den 0-24 h
- *   8  TEPLOTY / TEMPERATURES denni grafy teplot
- *   9  HISTORIE/ HISTORY      poslednich 7 dni
- *  10  USPORY  / SAVINGS      den, mesic, rok a kolik to usetrilo
- *  11  PREDIKCE / FORECAST    planovane a skutecne uspory
- *  12  NASTAVENI / SETTINGS   stav site a diagnosticke nastroje
- *  13  NASTAVENI 2 / SETTINGS 2  jazyk a uzivatelske volby
- *  14  CHYBY / ERRORS         zaznam chyb a vypadku
- *  15  UPOZORNENI / ALERTS    limity a LED chyb
- *  16  DNES A VCERA / TODAY & YESTERDAY  srovnani dennich hodnot
- *  17  O APLIKACI / ABOUT     verze, deska, kontakt
- *  18  NAVRATNOST / PAYBACK   rucni investice a vyuzita energie
+ *   0  PREHLED / OVERVIEW            karty, predikce a ukazatele
+ *   1  BATERIE / BATTERY             SOC, napeti, proud a kapacita
+ *   2  ZIVOTNOST / BATTERY LIFE      skupiny baterii a cykly
+ *   3  DOBEH / BATTERY RUNTIME       odhad do plna nebo vybiti
+ *   4  SOLAR / SOLAR                 vykon, denni vyroba a panely
+ *   5  SIT A ZATEZ / GRID AND LOAD   odber, zatez, frekvence a energie
+ *   6  MENIC / INVERTER              teplota, vykony a nabijeci napeti
+ *   7  POCASI / WEATHER              predpoved, teplota a delka dne
+ *   8  GRAFY / CHARTS                denni prubehy 0-24 h
+ *   9  TEPLOTY / TEMPERATURES        dnesni a vcerejsi teploty
+ *  10  HISTORIE / HISTORY            tyden, 31 dni nebo 12 mesicu
+ *  11  USPORY / SAVINGS              usetrena energie a jeji cena
+ *  12  PREDIKCE USPOR / SAVINGS FORECAST plan a skutecnost
+ *  13  DNES A VCERA / TODAY AND YESTERDAY porovnani dennich hodnot
+ *  14  NAVRATNOST / PAYBACK           rucni investice a vyuzita energie
+ *  15  CHYBY / ERRORS                historie chyb a vypadku
+ *  16  UPOZORNENI / ALERTS            nastavitelne limity a LED
+ *  17  NASTAVENI / SETTINGS           stav zarizeni a diagnostika
+ *  18  NASTAVENI 2 / SETTINGS 2      jazyk a uzivatelske volby
+ *  19  O APLIKACI / ABOUT             verze, deska, pamet a kontakt
  *
  *  ---------------------------------------------------------------------
  *  CZ: Rozhrani je ve ctyrech jazycich (CZ/EN/PL/DE), tabulka je v Lang.h.
@@ -88,29 +89,22 @@
 // EN: In Arduino IDE the board shows up under Tools > Port as a network port.
 // Heslo nechte prazdne pro aktualizaci bez hesla.
 // EN: Leave the password empty for updates without one.
-#define FW_VERSION   "2.02"
+#define FW_VERSION   "2.03"
 
 // ================= NASTAVENI / SETTINGS ================================================
-// Vychozi hodnoty. Vse nize se da zmenit na strance NASTAVENI 2 a uklada
-// EN: Defaults. Everything below can be changed on the SETTINGS 2 screen and is
-// se do NVS, takze prezije restart. / in NVS, so it survives a reboot.
-// pod kolik procent hlasit nizky stav baterie
-// EN: below how many percent to report a low battery
-// nad kolik stupnu hlasit prehrivani menice
-// EN: above how many degrees to report inverter overheating
-// po kolika neuspesnych nactenich restartovat
-// EN: how many failed fetches before rebooting
+// CZ: Výchozí hodnoty a pevné limity. Uživatelské volby se ukládají do NVS.
+// EN: Default values and fixed limits. User-configurable options are stored in NVS.
+// CZ: Následující limity určují nízké SOC, vysokou teplotu a počet chyb před restartem.
+// EN: The following limits define low SOC, high temperature, and failures before reboot.
 #define FAIL_REBOOT   30
 
 // po jake dobe bez novych dat je hlasit jako stara
 // EN: how long without new data before reporting it as stale
 
-// cas z internetu; retezec pasma resi i prechod na letni cas
-// EN: time from the internet; the zone string handles daylight saving too
-// Poloha pro vypocet vychodu a zapadu slunce. Vychozi hodnoty jsou Praha,
-// EN: Position for the sunrise and sunset calculation. Defaults to Prague,
-// upravte podle mista instalace (kladna sirka = sever, delka = vychod).
-// EN: adjust to the installation site (positive latitude = north, longitude = east).
+// CZ: NTP zajišťuje čas včetně letního času. Souřadnice jsou výchozí poloha Praha;
+//     upravte je podle instalace (kladná šířka je sever, délka východ).
+// EN: NTP provides local time with daylight-saving transitions. Coordinates default
+//     to Prague; adjust for the installation site (north/east are positive).
 #define GEO_LAT     50.08f
 #define GEO_LON     14.44f
 
@@ -120,15 +114,11 @@
 #define SCR_W         320
 #define SCR_H         480
 
-// ---- RGB LED na desce: signalizace zateze / on-board load LED ---------------------------------
-// do CFG_GREEN      zelena   - mala zatez
-// EN: up to CFG_GREEN   green    - light load
-// do CFG_ORANGE     oranzova - stredni zatez
-// EN: up to CFG_ORANGE  orange   - medium load
-// nad CFG_ORANGE    cervena  - velka zatez
-// EN: above CFG_ORANGE  red      - heavy load
-// bez dat                modra    - neni spojeni se Solar Assistant
-// EN: no data                blue     - no link to Solar Assistant
+// ---- RGB LED: úroveň zátěže a stav připojení / RGB LED: load and connection status ----
+// CZ: Do CFG_GREEN je zátěž zelená, do CFG_ORANGE oranžová, nad ní červená;
+//     bez dat svítí modře kvůli chybějícímu spojení se Solar Assistantem.
+// EN: Load is green up to CFG_GREEN and orange up to CFG_ORANGE, then red;
+//     missing data is blue to indicate no connection to Solar Assistant.
 #define LED_R            4
 // Na pouzite desce jsou fyzicke kanaly G/B oproti popisu prohozene.
 // EN: This board has the physical G/B channels swapped from the usual pin map.
@@ -153,20 +143,20 @@ Preferences prefs;
 
 // ===========================================================================
 // PISMA / FONTS
-// Vestavena pisma TFT_eSPI (2/4/6/7) neobsahuji diakritiku. Texty se proto
-// EN: Built-in TFT_eSPI fonts (2/4/6/7) carry no diacritics. Text is therefore
-//  kresli smooth fontem FontUi / drawn with the FontUi smooth font, numbers
-// zustavaji na vestavenych pismech, kde diakritika neni potreba.
-// EN: stay on the built-in fonts, where diacritics are not needed.
-//
-// TFT_eSPI umi mit nactene jen JEDNO smooth pismo a dokud je nactene,
-// EN: TFT_eSPI can only have ONE smooth font loaded, and while it is loaded
-// ignoruje cislo pisma v drawString(). Proto se mezi nimi prepina.
-// EN: it ignores the font number in drawString(). Hence the switching.
+// CZ: Vestavěné fonty TFT_eSPI nemají českou diakritiku, proto ji kreslí FontUi;
+//     čísla zůstávají ve vestavěných fontech. TFT_eSPI drží načtený jen jeden
+//     smooth font a ignoruje pak číslo fontu, takže mezi typy explicitně přepínáme.
+// EN: Built-in TFT_eSPI fonts lack Czech diacritics, so FontUi draws accented text
+//     while numbers use built-in fonts. TFT_eSPI keeps only one smooth font loaded
+//     and then ignores font numbers, so the code explicitly switches font types.
 // ===========================================================================
 bool czLoaded = false;
 
+// CZ: Načte písmo s českými znaky pouze tehdy, když ještě není aktivní.
+// EN: Load the Czech-capable font only when it is not already active.
 void czOn()  { if (!czLoaded) { tft.loadFont(FontUi); czLoaded = true;  } }
+// CZ: Uvolní české písmo a vrátí vykreslování k vestavěným fontům.
+// EN: Unload the Czech font and return drawing to the built-in fonts.
 void czOff() { if (czLoaded)  { tft.unloadFont();     czLoaded = false; } }
 
 // text s diakritikou / text with diacritics
@@ -314,6 +304,7 @@ uint8_t iGreen = 2, iOrange = 1, iRot = 0;
 uint8_t iBlink = 0, iPrice = 10, iCurr = 0;
 uint8_t iAlertSoc = 2, iAlertTemp = 3, iStale = 1, iErrLed = 1;
 uint8_t iGridLimit = 3, iGridTime = 3;
+uint8_t iPvVoltLimit = 30;
 
 #define CFG_FETCH   OPT_FETCH[iFetch]
 #define CFG_SLEEP   OPT_SLEEP[iSleep]
@@ -331,6 +322,7 @@ uint8_t iGridLimit = 3, iGridTime = 3;
 #define CFG_ERR_LED    OPT_ERR_LED[iErrLed]
 #define CFG_GRID_LIMIT OPT_GRID_LIMIT[iGridLimit]
 #define CFG_GRID_TIME  OPT_GRID_TIME[iGridTime]
+#define CFG_PV_VOLT_LIMIT iPvVoltLimit
 // jazyk rozhrani, uklada se do NVS
 // EN: interface language, stored in NVS
 uint8_t  lang = LANG_CZ;
@@ -355,7 +347,7 @@ bool     haveFetch = false;
 // EN: The latest 16 events stay in NVS across restarts. Each record keeps
 //     only type, repeat count and time, so diagnostics stay memory-efficient.
 #define ERR_LOG_N 16
-enum { ERR_FETCH = 1, ERR_API, ERR_COUNTER, ERR_SOC, ERR_TEMP, ERR_GRID };
+enum { ERR_FETCH = 1, ERR_API, ERR_COUNTER, ERR_SOC, ERR_TEMP, ERR_GRID, ERR_PV_HIGH };
 struct ErrorEntry { uint8_t type, count, hour, minute, endHour, endMinute; uint16_t yday, durationMin; };
 ErrorEntry errorLog[ERR_LOG_N];
 uint8_t errCount = 0, errPos = 0;
@@ -508,15 +500,10 @@ const uint16_t PLAN_OWN_KWH10[12] = {
    55, 153, 721, 658, 828, 924, 1040, 1080, 579, 311, 220, 99
 };
 
-// Stav kumulativnich pocitadel o pulnoci.
-// EN: State of the cumulative counters at midnight.
-//
-// CZ: API vraci total/*_energy jako pocitadla od instalace, ne denni
-//     hodnoty. Jedina skutecne denni polozka je weather/pv_energy_generated.
-//     Denni spotreba se proto musi pocitat jako rozdil proti pulnoci.
-// EN: The API returns total/*_energy as counters since installation, not
-//     daily figures. The only truly daily item is weather/pv_energy_generated.
-//     Daily consumption therefore has to be the difference since midnight.
+// CZ: Základy kumulativních počitadel zachycují stav o půlnoci. API vrací
+//     total/*_energy jako součty od instalace; denní spotřeba je rozdíl od základu.
+// EN: Counter baselines capture the midnight state. API total/*_energy values
+//     are lifetime totals, so daily consumption is calculated from the baseline.
 float baseLoad = 0, baseGridIn = 0, baseBattIn = 0, baseBattOut = 0;
 bool  baseValid = false;
 int   lastMon = -1;
@@ -537,8 +524,10 @@ uint8_t minSoc = 100;
 int16_t minInvTemp = 32767, maxInvTemp = -32768, minOutTemp = 32767, maxOutTemp = -32768;
 int16_t minInvSlot = -1, maxInvSlot = -1, minOutSlot = -1, maxOutSlot = -1;
 
-// Uzavreny vcerejsek pro prime porovnani s dneskem. Uklada se samostatne,
-// aby se neztratil pri posunu kruhove historie 31 dni.
+// CZ: Souhrn včerejška pro přímé porovnání s dneškem; ukládá se zvlášť,
+//     aby jej nepřepsal posun kruhové historie dnů.
+// EN: Yesterday's summary for direct comparison with today; store it separately
+//     so rotation of the circular daily history cannot overwrite it.
 struct DaySummary {
   uint16_t pv, load, save, maxLoad;
   int16_t minInv, maxInv, minOut, maxOut;
@@ -572,8 +561,8 @@ struct BatteryPersist {
 };
 static_assert(sizeof(BatteryPersist) < 60, "Battery block is too large");
 
-// Ulozi parametry bateriovych skupin do jednoho kompatibilniho bloku NVS.
-// EN: Store battery-group parameters in one compatible NVS block.
+// CZ: Uloží nastavení skupin baterií a společný základ cyklů do jednoho bloku NVS.
+// EN: Save battery-group settings and the shared cycle baseline in one NVS block.
 void batterySave() {
   BatteryPersist data;
   memcpy(data.groups, batteryGroups, sizeof(batteryGroups));
@@ -584,8 +573,8 @@ void batterySave() {
   prefs.putBytes("batV2", &data, sizeof(data));
 }
 
-// Nacte ulozene parametry a opravi nesmyslne hodnoty po migraci.
-// EN: Load stored parameters and clamp invalid values after migration.
+// CZ: Načte blok NVS, zkontroluje rozsahy a opraví neplatné hodnoty po migraci.
+// EN: Load the NVS block, validate ranges, and repair invalid migrated values.
 void batteryLoad() {
   if (prefs.getBytesLength("batV2") != sizeof(BatteryPersist)) return;
   BatteryPersist data;
@@ -609,8 +598,12 @@ void batteryLoad() {
 // RGB LED - signalizace zateze / RGB LED - load signalling
 // ===========================================================================
 
+// CZ: Převede typ chyby na bit příznaku používaný v activeErrors.
+// EN: Convert an error type to its activeErrors flag bit.
 uint8_t errorBit(uint8_t type) { return (uint8_t)(1U << (type - 1)); }
 
+// CZ: Vrátí lokalizovaný název chyby pro zadaný typ.
+// EN: Return the localized label for the given error type.
 const char* errorName(uint8_t type) {
   switch (type) {
     case ERR_FETCH:   return TR(T_ERR_FETCH);
@@ -618,10 +611,13 @@ const char* errorName(uint8_t type) {
     case ERR_COUNTER: return TR(T_ERR_COUNTER);
     case ERR_SOC:     return TR(T_ALERT_SOC);
     case ERR_TEMP:    return TR(T_ALERT_TEMP);
+    case ERR_PV_HIGH: return TR(T_ERR_PV_VOLTAGE);
     default:          return TR(T_ERR_GRID);
   }
 }
 
+// CZ: Uloží kruhový seznam chyb a jeho pozici atomicky do NVS.
+// EN: Persist the error ring buffer and its position as one NVS record.
 void errorSave() {
   ErrorPersist data;
   memcpy(data.entries, errorLog, sizeof(errorLog));
@@ -629,6 +625,8 @@ void errorSave() {
   prefs.putBytes("errV2", &data, sizeof(data));
 }
 
+// CZ: Načte nový formát logu; při jeho absenci migruje staré samostatné klíče.
+// EN: Load the current log format, or migrate legacy individual keys if absent.
 void errorLoad() {
   if (prefs.getBytesLength("errV2") == sizeof(ErrorPersist)) {
     ErrorPersist data;
@@ -648,12 +646,16 @@ void errorLoad() {
   if (errPos >= ERR_LOG_N) errPos = 0;
 }
 
+// CZ: Vymaže celý seznam chyb v RAM i uloženou kopii v NVS.
+// EN: Clear the error list in RAM and in NVS.
 void errorClear() {
   memset(errorLog, 0, sizeof(errorLog));
   errCount = errPos = 0;
   errorSave();
 }
 
+// CZ: Založí novou událost jen při prvním přechodu chyby do aktivního stavu.
+// EN: Create an event only when an error first becomes active.
 void errorStart(uint8_t type) {
   uint8_t bit = errorBit(type);
   if (activeErrors & bit) return;
@@ -672,6 +674,8 @@ void errorStart(uint8_t type) {
   errorSave();
 }
 
+// CZ: Uzavře aktivní událost a doplní její dobu trvání a čas konce.
+// EN: Close an active event and record its duration and end time.
 void errorStop(uint8_t type) {
   uint8_t bit = errorBit(type);
   if (!(activeErrors & bit)) return;
@@ -688,33 +692,44 @@ void errorStop(uint8_t type) {
   }
 }
 
+// CZ: Zvýší počet opakovaných selhání aktuální události bez přetečení.
+// EN: Increment the current event's failure count without overflowing.
 void errorRepeat(uint8_t type) {
   if (!(activeErrors & errorBit(type)) || errCount == 0) return;
   ErrorEntry& entry = errorLog[(errPos + ERR_LOG_N - 1) % ERR_LOG_N];
   if (entry.type == type && entry.count < 255) { entry.count++; errorSave(); }
 }
 
-// LED na desce je zapojena jako aktivni v LOW, proto se strida obraci
-// EN: the on-board LED is active LOW, so the duty cycle is inverted
+// CZ: Nastaví barvu RGB LED; výstup obrací, protože LED je aktivní v LOW.
+// EN: Set the RGB LED colour, inverting outputs because the LED is active-low.
 void setLed(uint8_t r, uint8_t g, uint8_t b) {
   PWM_WRITE(LED_R, 0, 255 - (r * LED_BRIGHT / 255));
   PWM_WRITE(LED_G, 1, 255 - (g * LED_BRIGHT / 255));
   PWM_WRITE(LED_B, 2, 255 - (b * LED_BRIGHT / 255));
 }
 
-// Upozorneni: nizky stav baterie nebo prehrivajici se menic.
-// EN: Alert: low battery or an overheating inverter.
-// Projevi se cervenym ramem kolem obsahu, cervenou hlavickou, blikajici
-// EN: Shows as a red frame around the content, a red header, a blinking
-// diodou a textem na prislusne strance. / LED and text on the relevant screen.
+// CZ: Vrátí, zda je aktivní bezpečnostní upozornění na nízké SOC nebo vysokou teplotu.
+// EN: Report an active safety alert for low SOC or high temperature.
 bool alertActive() {
   return dataOk && (v_soc < CFG_ALERT_SOC || i_temp > CFG_ALERT_TEMP);
 }
 
+// CZ: Vybere text aktivního upozornění podle priority zobrazení.
+// EN: Select the active alert text in display-priority order.
 const char* alertText() {
-  return v_soc < CFG_ALERT_SOC ? TR(T_ALERT_SOC) : TR(T_ALERT_TEMP);
+  if (v_soc < CFG_ALERT_SOC) return TR(T_ALERT_SOC);
+  if (i_temp > CFG_ALERT_TEMP) return TR(T_ALERT_TEMP);
+  return TR(T_ALERT_TEMP);
 }
 
+// CZ: Určí pouze stavovou indikaci vysokého napětí FV; nejde o chybu ani alarm.
+// EN: Determine the PV high-voltage status indicator only; this is not an alarm.
+bool pvDisconnectedStatus() {
+  return dataOk && i_pv_voltage > CFG_PV_VOLT_LIMIT;
+}
+
+// CZ: Sleduje dlouhodobé překročení limitu odběru ze sítě.
+// EN: Monitor sustained grid-import power above the configured limit.
 void updateGridAlert() {
   if (CFG_GRID_LIMIT == 0 || v_grid_power < CFG_GRID_LIMIT) {
     gridHighSince = 0;
@@ -726,8 +741,8 @@ void updateGridAlert() {
     errorStart(ERR_GRID);
 }
 
-// uroven zateze: 0 mala, 1 stredni, 2 velka, 3 bez dat
-// EN: load level: 0 light, 1 medium, 2 heavy, 3 no data
+// CZ: Zařadí okamžitý odběr podle nastavených zelených a oranžových mezí.
+// EN: Classify current load using the configured green and orange thresholds.
 int loadLevel() {
   if (!dataOk) return 3;
   if (v_load_power <= CFG_GREEN)  return 0;
@@ -735,6 +750,8 @@ int loadLevel() {
   return 2;
 }
 
+// CZ: Vrátí lokalizovaný název aktuální úrovně zátěže.
+// EN: Return the localized name of the current load level.
 const char* loadLevelName() {
   switch (loadLevel()) {
     case 0:  return "malá";
@@ -744,8 +761,8 @@ const char* loadLevelName() {
   }
 }
 
-// barva ukazatele zateze - zamerne stejna jako barva diody
-// EN: load gauge colour - deliberately the same as the LED
+// CZ: Vrátí barvu měřidla odpovídající stejné úrovni jako stavová LED.
+// EN: Return the gauge colour matching the status LED's load level.
 uint16_t loadColor() {
   switch (loadLevel()) {
     case 0:  return C_BATT;
@@ -755,6 +772,8 @@ uint16_t loadColor() {
   }
 }
 
+// CZ: Nastaví LED podle chyb, upozornění, limitu zátěže nebo běžné úrovně odběru.
+// EN: Set the LED for errors, alerts, the load threshold, or normal consumption level.
 void updateLoadLed() {
   if (activeErrors && CFG_ERR_LED > 0) {
     bool on = (millis() / 500) % 2;
@@ -790,12 +809,19 @@ void updateLoadLed() {
 // IKONY  (kreslene vektorove, velikost ~30 px)
 // EN: ICONS  (vector drawn, about 30 px)
 // ===========================================================================
+// CZ: Funkce ico* skládají malé ikony z čar a základních TFT tvarů.
+// EN: The ico* helpers compose small icons from lines and basic TFT shapes.
+
+// CZ: icoLine zesiluje čáru o pixel, aby tenké diagonály zůstaly čitelné.
+// EN: icoLine thickens strokes by one pixel so thin diagonals remain legible.
 void icoLine(int x1, int y1, int x2, int y2, uint16_t c) {
   tft.drawLine(x1, y1, x2, y2, c);
   if (abs(x2 - x1) >= abs(y2 - y1)) tft.drawLine(x1, y1 + 1, x2, y2 + 1, c);
   else tft.drawLine(x1 + 1, y1, x2 + 1, y2, c);
 }
 
+// CZ: Vykreslí slunce z kruhového středu a osmi paprsků.
+// EN: Draw a sun from a circular centre and eight rays.
 void icoSun(int x, int y, uint16_t c) {
   tft.fillCircle(x + 15, y + 15, 6, c);
   for (int a = 0; a < 360; a += 45) {
@@ -805,6 +831,8 @@ void icoSun(int x, int y, uint16_t c) {
   }
 }
 
+// CZ: Vykreslí oblak ze sjednocených kruhových a obdélníkových tvarů.
+// EN: Draw a cloud by combining circular and rectangular shapes.
 void icoCloud(int x, int y, uint16_t c) {
   tft.fillCircle(x + 10, y + 18, 6, c);
   tft.fillCircle(x + 18, y + 15, 8, c);
@@ -812,11 +840,15 @@ void icoCloud(int x, int y, uint16_t c) {
   tft.fillRect(x + 10, y + 19, 15, 5, c);
 }
 
+// CZ: Složí ikonu polojasna ze slunce a světlého oblaku.
+// EN: Compose a partly-cloudy icon from a sun and a light cloud.
 void icoSunCloud(int x, int y, uint16_t c) {
   tft.fillCircle(x + 20, y + 10, 6, C_PV);
   icoCloud(x, y + 3, C_TXT);
 }
 
+// CZ: Vykreslí baterii s barevnou výplní a symbolem energie.
+// EN: Draw a battery with a coloured fill and energy symbol.
 void icoBattery(int x, int y, uint16_t c) {
   tft.drawRoundRect(x + 5, y + 4, 20, 24, 4, C_TXT);
   tft.drawRoundRect(x + 6, y + 5, 18, 22, 3, C_TXT);
@@ -826,6 +858,8 @@ void icoBattery(int x, int y, uint16_t c) {
   tft.fillTriangle(x + 13, y + 23, x + 19, y + 15, x + 15, y + 15, C_TXT);
 }
 
+// CZ: Vykreslí síťovou zástrčku používanou u údajů o odběru.
+// EN: Draw the mains plug used by grid-consumption indicators.
 void icoPlug(int x, int y, uint16_t c) {
   tft.drawRoundRect(x + 6, y + 10, 18, 12, 3, c);
   tft.drawLine(x + 10, y + 4, x + 10, y + 10, c);
@@ -833,6 +867,8 @@ void icoPlug(int x, int y, uint16_t c) {
   tft.drawLine(x + 24, y + 16, x + 28, y + 16, c);
 }
 
+// CZ: Vykreslí čelní panel měniče s průběhovou křivkou.
+// EN: Draw the inverter front panel with a waveform.
 void icoInverter(int x, int y, uint16_t c) {
   tft.drawRoundRect(x + 4, y + 3, 22, 26, 4, C_TXT);
   tft.drawRoundRect(x + 5, y + 4, 20, 24, 3, C_TXT);
@@ -844,7 +880,8 @@ void icoInverter(int x, int y, uint16_t c) {
   tft.fillCircle(x + 19, y + 22, 2, C_TXT);
 }
 
-// fotovoltaicky panel se stojanem / photovoltaic panel with a stand
+// CZ: Ikona FV panelu se stojanem.
+// EN: Draw a photovoltaic panel with its stand.
 void icoPanel(int x, int y, uint16_t c) {
   tft.fillCircle(x + 23, y + 6, 4, C_PV);
   tft.drawRect(x + 2, y + 8, 25, 15, c);
@@ -856,7 +893,8 @@ void icoPanel(int x, int y, uint16_t c) {
   tft.drawFastHLine(x + 8, y + 28, 15, C_TXT);
 }
 
-// prihradovy stozar vysokeho napeti / lattice transmission tower
+// CZ: Ikona přenosového stožáru pro zobrazení sítě.
+// EN: Draw the transmission pylon used for grid indicators.
 void icoPylon(int x, int y, uint16_t c) {
   icoLine(x + 6, y + 28, x + 13, y + 5, C_TXT);
   icoLine(x + 24, y + 28, x + 17, y + 5, C_TXT);
@@ -869,6 +907,8 @@ void icoPylon(int x, int y, uint16_t c) {
   icoLine(x + 21, y + 18, x + 9, y + 27, C_TXT);
 }
 
+// CZ: Vykreslí dům s okny a dveřmi.
+// EN: Draw a house with windows and a door.
 void icoHouse(int x, int y, uint16_t c) {
   tft.fillTriangle(x + 2, y + 15, x + 15, y + 3, x + 28, y + 15, C_TXT);
   tft.fillRect(x + 6, y + 14, 19, 14, C_TXT);
@@ -876,6 +916,8 @@ void icoHouse(int x, int y, uint16_t c) {
   tft.fillRect(x + 17, y + 18, 5, 10, c);
 }
 
+// CZ: Vykreslí teploměr s barevnou rtuťovou náplní.
+// EN: Draw a thermometer with a coloured fluid column.
 void icoTemp(int x, int y, uint16_t c) {
   tft.drawRoundRect(x + 10, y + 2, 10, 21, 5, C_TXT);
   tft.drawRoundRect(x + 11, y + 3, 8, 19, 4, C_TXT);
@@ -884,6 +926,8 @@ void icoTemp(int x, int y, uint16_t c) {
   tft.fillRect(x + 14, y + 10, 3, 14, c);
 }
 
+// CZ: Vykreslí dvě linky proudění větru.
+// EN: Draw two flowing wind lines.
 void icoWind(int x, int y, uint16_t c) {
   tft.drawLine(x + 4, y + 10, x + 18, y + 10, c);
   tft.drawCircle(x + 20, y + 8, 4, c);
@@ -891,12 +935,16 @@ void icoWind(int x, int y, uint16_t c) {
   tft.drawCircle(x + 24, y + 20, 5, c);
 }
 
+// CZ: Vykreslí ciferník hodin s ručičkami.
+// EN: Draw a clock face with hands.
 void icoClock(int x, int y, uint16_t c) {
   tft.drawCircle(x + 15, y + 15, 12, c);
   tft.drawLine(x + 15, y + 15, x + 15, y + 8, c);
   tft.drawLine(x + 15, y + 15, x + 20, y + 17, c);
 }
 
+// CZ: Vykreslí blesk pro energetické a výkonové údaje.
+// EN: Draw a lightning bolt for energy and power indicators.
 void icoBolt(int x, int y, uint16_t c) {
   tft.fillTriangle(x + 18, y + 3, x + 8, y + 17, x + 15, y + 17, c);
   tft.fillTriangle(x + 12, y + 28, x + 22, y + 13, x + 15, y + 13, c);
@@ -923,6 +971,8 @@ void arcRing(int cx, int cy, int rIn, int rOut, float aFrom, float aTo, uint16_t
   }
 }
 
+// CZ: Vrátí aktuální živou hodnotu příslušné metriky ukazatele.
+// EN: Return the current live value for a gauge metric.
 float gaugeTarget(uint8_t metric) {
   switch (metric) {
     case GM_PV:    return v_pv_power;
@@ -935,6 +985,8 @@ float gaugeTarget(uint8_t metric) {
   }
 }
 
+// CZ: Vrátí interpolovanou hodnotu, pokud je animace aktivní, jinak živou.
+// EN: Return an interpolated value while animation is active, otherwise live data.
 float animatedGauge(uint8_t metric) {
   if (!gaugeAnim.active) return gaugeTarget(metric);
   float p = constrain((millis() - gaugeAnim.started) / (float)GAUGE_ANIM_MS, 0.0f, 1.0f);
@@ -942,31 +994,31 @@ float animatedGauge(uint8_t metric) {
   return gaugeAnim.from[metric] + (gaugeTarget(metric) - gaugeAnim.from[metric]) * p;
 }
 
-// Animaci pouzivaji jen stranky s pulkruhovym ukazatelem.
-// EN: Only pages containing a semicircular gauge use the animation.
+// CZ: Určí stránky s půlkruhovými měřidly způsobilé pro dílčí překreslení.
+// EN: Identify pages with semicircular gauges eligible for partial redraws.
 bool screenUsesGaugeAnimation(int page) {
   return page == SCR_OVERVIEW || page == SCR_BATTERY || page == SCR_SOLAR ||
          page == SCR_GRID || page == SCR_WEATHER || page == SCR_INVERTER;
 }
 
+// CZ: Zachová rozhraní animace, ale animaci záměrně nespouští kvůli blikání LCD.
+// EN: Keep the animation interface but intentionally disable it to avoid LCD flicker.
 void startGaugeAnimation(const float previous[GM_COUNT], bool hadData) {
-  // Animace je zamerne vypnuta: nova data se vykresli jednim prekreslenim.
-  // EN: Animation is intentionally disabled: new data is drawn in one refresh.
   (void)previous;
   (void)hadData;
   gaugeLastFrame = 0;
   gaugeAnim.active = false;
 }
 
-// Carkova stupnice po obvodu ukazatele. Carky jsou po 5 %, kazda pata
-// EN: Tick scale around the gauge. Ticks every 5 %, every fifth one
-// (tedy 0 / 25 / 50 / 75 / 100 %) je delsi a svetlejsi.
-// EN: (0 / 25 / 50 / 75 / 100 %) is longer and lighter.
-// Kresli se VNE prstence, protoze uvnitr je misto na hodnotu.
-// EN: Drawn OUTSIDE the ring, the inside is reserved for the value.
+// CZ: Stupnice je po 5 %; každá pátá značka (0/25/50/75/100 %) je delší.
+//     Značky jsou vně prstence, aby uvnitř zůstalo místo pro hodnotu.
+// EN: Ticks are spaced at 5%; every fifth mark (0/25/50/75/100%) is longer.
+//     They sit outside the ring, leaving its centre clear for the value.
 #define TICK_N     20        // 20 dilku = 21 carek / 20 divisions = 21 ticks
 #define TICK_MAJOR  5        // kazda pata carka je vyrazna / every fifth tick stands out
 
+// CZ: Vykreslí vnější dílky stupnice; každá pátá značka je delší.
+// EN: Draw the outer scale ticks, making every fifth mark longer.
 void gaugeTicks(int cx, int cy, int r) {
   for (int i = 0; i <= TICK_N; i++) {
     float a = 180.0f + 180.0f * i / TICK_N;
@@ -983,12 +1035,10 @@ void gaugeTicks(int cx, int cy, int r) {
   }
 }
 
-// Ukazatel s jednotkou, ktera se kresli ceskym fontem. Vestavena pisma
-// obsahuji jen ASCII, takze znak stupne by v nich chybel. Hodnota zustava
-// velkym pismem, jednotka se pripoji hned za ni.
-// EN: Gauge with a unit drawn in the Czech font. The built-in fonts are ASCII
-//     only, so the degree sign would be missing. The value keeps the large
-//     font and the unit is appended right after it.
+// CZ: Vykreslí půlkruhový ukazatel s velkou hodnotou a jednotkou FontUi.
+//     FontUi je nutný pro znaky, které vestavěné fonty neobsahují.
+// EN: Draw a semicircular gauge with a large value and a FontUi unit.
+//     FontUi is needed for characters missing from the built-in fonts.
 void halfGaugeU(int cx, int cy, int r, int thick, float val, float maxVal,
                 uint16_t col, const char* valText, const char* unit,
                 const char* label) {
@@ -1016,8 +1066,8 @@ void halfGaugeU(int cx, int cy, int r, int thick, float val, float maxVal,
   tft.setTextDatum(TL_DATUM);
 }
 
-// pulkruhovy ukazatel jako v predloze: draha + barevna vyplnena cast
-// EN: half-circle gauge as in the reference: track plus a coloured filled part
+// CZ: Vykreslí půlkruhovou stupnici s barevným vyplněním a popiskem.
+// EN: Draw a semicircular gauge with a coloured fill and label.
 void halfGauge(int cx, int cy, int r, int thick, float val, float maxVal,
                uint16_t col, const char* valText, const char* label) {
   float f = maxVal > 0 ? constrain(val / maxVal, 0.0f, 1.0f) : 0;
@@ -1037,7 +1087,8 @@ void halfGauge(int cx, int cy, int r, int thick, float val, float maxVal,
   tft.setTextDatum(TL_DATUM);
 }
 
-// vodorovny pruh s vyplni / horizontal bar with a fill
+// CZ: Vykreslí vodorovný ukazatel podílu s omezením hodnoty na rozsah 0–1.
+// EN: Draw a horizontal proportion bar, clamping its value to 0–1.
 void bar(int x, int y, int w, int h, float frac, uint16_t col) {
   frac = constrain(frac, 0.0f, 1.0f);
   tft.fillRoundRect(x, y, w, h, h / 2, C_TRACK);
@@ -1054,6 +1105,7 @@ void bar(int x, int y, int w, int h, float frac, uint16_t col) {
 #include "UiStyle.h"
 #include "WeatherIcons.h"
 #include "UiIcons.h"
+#include "PVDisconnectedIcon.h"
 
 // Bitmapa se kresli primo z flash; nevytvari se docasny buffer v RAM.
 // EN: The bitmap is drawn directly from flash; no temporary RAM buffer is made.
@@ -1063,6 +1115,21 @@ void drawUiIcon(uint8_t icon, int x, int y) {
   // EN: RGB565 is stored in the byte order expected by TFT_eSPI.
   tft.setSwapBytes(true);
   tft.pushImage(x, y, UI_ICON_SIZE, UI_ICON_SIZE, UI_ICON_DATA[icon]);
+  tft.setSwapBytes(false);
+}
+
+// CZ: Zobrazí pouze informační ikonu odpojení FV při napětí nad nastavenou mezí.
+// EN: Show only an informational PV-disconnected icon above the configured voltage.
+void drawPvDisconnectedBadge() {
+  if (!pvDisconnectedStatus()) return;
+  const int x = 136, y = 307;
+  tft.fillRoundRect(x, y + 2, 48, 48, 8, C_TRACK);
+  tft.fillRoundRect(x, y, 48, 46, 8, C_CARD);
+  tft.drawRoundRect(x, y, 48, 46, 8, C_LINE);
+  tft.drawFastHLine(x + 12, y + 1, 24, C_LOAD);
+  tft.setSwapBytes(true);
+  tft.pushImage(x + 4, y + 4, PV_DISCONNECTED_ICON_W, PV_DISCONNECTED_ICON_H,
+                PV_DISCONNECTED_ICON_DATA);
   tft.setSwapBytes(false);
 }
 
@@ -1098,25 +1165,29 @@ void statBox(int x, int y, int w, int h, const char* label,
 // ===========================================================================
 // FORMATOVANI / FORMATTING
 // ===========================================================================
+// CZ: Osm pevných bufferů dovoluje bezpečně skládat více formátovaných hodnot.
+// EN: Eight fixed buffers allow several formatted values to coexist safely.
 char fbuf[8][24];
 int  fidx = 0;
 
+// CZ: Formátuje jednu desetinnou hodnotu do dalšího slotu sdíleného bufferu.
+// EN: Format one floating-point value into the next shared-buffer slot.
 const char* fmt(const char* format, float value) {
   fidx = (fidx + 1) % 8;
   snprintf(fbuf[fidx], 24, format, value);
   return fbuf[fidx];
 }
 
-// vykon se znamenkem, pro ukazatele kde je smer toku podstatny
-// EN: signed power, for gauges where the direction of flow matters
-// formatovani dvou celych cisel do sdileneho bufferu
-// EN: formats two integers into the shared buffer
+// CZ: Formátuje dvě celá čísla do dalšího slotu sdílených kruhových bufferů.
+// EN: Format two integers into the next slot of the shared rotating buffers.
 const char* fmt2(const char* f, uint32_t a, uint32_t b) {
   fidx = (fidx + 1) % 8;
   snprintf(fbuf[fidx], 24, f, (unsigned long)a, (unsigned long)b);
   return fbuf[fidx];
 }
 
+// CZ: Formátuje výkon se znaménkem, které určuje směr toku energie.
+// EN: Format signed power so its sign shows the direction of energy flow.
 const char* fmtSigned(float w) {
   fidx = (fidx + 1) % 8;
   if (fabsf(w) >= 1000) snprintf(fbuf[fidx], 24, "%+.2f kW", w / 1000.0f);
@@ -1124,6 +1195,8 @@ const char* fmtSigned(float w) {
   return fbuf[fidx];
 }
 
+// CZ: Formátuje absolutní výkon ve wattech nebo kilowattech.
+// EN: Format absolute power in watts or kilowatts.
 const char* fmtPower(float w) {
   fidx = (fidx + 1) % 8;
   if (fabsf(w) >= 1000) snprintf(fbuf[fidx], 24, "%.2f kW", w / 1000.0f);
@@ -1131,8 +1204,8 @@ const char* fmtPower(float w) {
   return fbuf[fidx];
 }
 
-// Cele hodnoty oddeluje mezerou po tisicich a umi pridat jednotku.
-// EN: Whole values are grouped by thousands and can receive a unit suffix.
+// CZ: Formátuje celé číslo s mezerami po tisících a volitelnou jednotkou.
+// EN: Format an integer with thousands separators and an optional unit suffix.
 const char* fmtGrouped(uint32_t value, const char* suffix = nullptr) {
   fidx = (fidx + 1) % 8;
   char digits[12];
@@ -1151,8 +1224,8 @@ const char* fmtGrouped(uint32_t value, const char* suffix = nullptr) {
   return fbuf[fidx];
 }
 
-// Castka vzdy pouziva aktualne zvolenou menu a oddelovac tisicu.
-// EN: Money always uses the selected currency and a thousands separator.
+// CZ: Zaokrouhlí částku, omezí její rozsah a připojí zvolenou měnu.
+// EN: Round and range-check an amount, then append the selected currency.
 const char* fmtMoney(float value) {
   double rounded = floor((double)value + 0.5);
   if (rounded < 0) rounded = 0;
@@ -1160,6 +1233,8 @@ const char* fmtMoney(float value) {
   return fmtGrouped((uint32_t)rounded, CFG_CURR);
 }
 
+// CZ: Převede kód počasí na lokalizovaný textový popisek.
+// EN: Convert a weather code to its localized text label.
 const char* weatherText(int code) {
   static const int labels[] = {T_W_CLEAR, T_W_PARTLY, T_W_OVERCAST, T_W_FOG,
     T_W_DRIZZLE, T_W_RAIN, T_W_SNOW, T_W_SHOWERS, T_W_SNOWSH, T_W_STORM};
@@ -1167,7 +1242,8 @@ const char* weatherText(int code) {
 }
 
 // ===========================================================================
-// OBRAZOVKA 0 - PREHLED / SCREEN 0 - OVERVIEW
+// CZ: Přehled – karty systému, predikce a čtyři hlavní ukazatele.
+// EN: Overview – system cards, forecast, and the four main gauges.
 // ===========================================================================
 void scrOverview() {
   // ---- karty / cards ----
@@ -1280,10 +1356,12 @@ void scrOverview() {
             shownBatt >= 0 ? C_BATT : C_GRID,
             fmtSigned(v_batt_power),
             shownBatt >= 0 ? TR(T_BATT_CHG) : TR(T_BATT_DIS));
+  drawPvDisconnectedBadge();
 }
 
 // ===========================================================================
-// OBRAZOVKA 1 - BATERIE / SCREEN 1 - BATTERY
+// CZ: Baterie – stav nabití, výkon, napětí, proud a energie dneška.
+// EN: Battery – state of charge, power, voltage, current, and today's energy.
 // ===========================================================================
 float dayBattOut();
 
@@ -1301,12 +1379,10 @@ void scrBattery() {
   arcRing(cx, cy, r - th, r, 180, 180 + 180 * constrain(shownSoc / 100.0f, 0.0f, 1.0f), col);
   gaugeTicks(cx, cy, r);
 
-  // Velke cislo s malym procentem vedle. Vestavene pismo 7 ma jen cislice,
-  // EN: Large number with a small percent sign. Built-in font 7 has digits only,
-  // procento se proto kresli ceskym fontem. Aby byla dvojice vycentrovana,
-  // EN: so the percent sign uses the Czech font. To centre the pair,
-  // zmeri se sirka cisla a od ni se odvodi zacatek.
-  // EN: the number width is measured and the start derived from it.
+// CZ: SOC se kreslí velkým číslem a menším procentem; šířka čísla se změří,
+//     aby se procento připojilo a celá dvojice zůstala vycentrovaná.
+// EN: SOC uses a large number and smaller percent sign; measure the number width
+//     to place the percent sign beside it while keeping the pair centred.
   const char* socStr = fmt("%.0f", v_soc);
   czOff();
   int wNum = tft.textWidth(socStr, 7);
@@ -1351,12 +1427,15 @@ void scrBattery() {
   statBox(164, sy+2*(sh+sg), 150, sh, TR(T_DISCH_TD),   fmt("%.2f kWh", dayBattOut()), C_PV);
 
   const char* minText = fmt("%.0f %%", (float)minSoc);
-  // Optimisticky odhad: cela zbyvajici predikovana vyroba muze do baterie.
+  // CZ: Optimistický odhad předpokládá, že celá zbývající predikce FVE dobije baterii.
+  // EN: The optimistic estimate assumes all remaining forecast PV energy charges the battery.
   float forecastSoc = v_batt_capacity > 0 ? min(100.0f, v_soc + w_pv_remaining / v_batt_capacity * 100.0f) : v_soc;
   const char* eveningText = fmt("%.0f %%", forecastSoc);
 
-  // Prave sloupce jsou zarovnane podle skutecne sirky hodnot. Popisek
-  // vecerniho SOC proto nikdy nezasahne do procenta ani do leveho sloupce.
+  // CZ: Pravé sloupce se zarovnávají podle skutečné šířky hodnot, aby se popisek
+  //     večerního SOC nepřekryl s procentem ani levým sloupcem.
+  // EN: Right-side columns align to the measured value width so the evening SOC
+  //     label cannot overlap the percent sign or the left column.
   czOn();
   int eveningValueLeft = 314 - tft.textWidth(eveningText);
   int eveningLabelRight = eveningValueLeft - 8;
@@ -1372,7 +1451,8 @@ void scrBattery() {
 }
 
 // ===========================================================================
-// OBRAZOVKA 2 - SOLAR / SCREEN 2 - SOLAR
+// CZ: Solár – výroba, denní průběh a hodnoty FV panelů.
+// EN: Solar – production, daily progress, and photovoltaic panel values.
 // ===========================================================================
 void scrSolar() {
   float shownPv = animatedGauge(GM_PV);
@@ -1406,7 +1486,8 @@ void scrSolar() {
 }
 
 // ===========================================================================
-// OBRAZOVKA 3 - SIT A ZATEZ / SCREEN 3 - GRID AND LOAD
+// CZ: Síť a zátěž – odběr, výkon zátěže, napětí, frekvence a energie.
+// EN: Grid and load – import, load power, voltage, frequency, and energy.
 // ===========================================================================
 void scrGridLoad() {
   float shownGrid = animatedGauge(GM_GRID), shownLoad = animatedGauge(GM_LOAD);
@@ -1454,7 +1535,8 @@ void scrGridLoad() {
 }
 
 // ===========================================================================
-// OBRAZOVKA 4 - POCASI / SCREEN 4 - WEATHER
+// CZ: Počasí – aktuální podmínky, předpověď a poměr délky dne a noci.
+// EN: Weather – current conditions, forecast, and day-to-night length ratio.
 // ===========================================================================
 void scrWeather() {
   int code = (int)w_code;
@@ -1521,7 +1603,8 @@ void scrWeather() {
 }
 
 // ===========================================================================
-// OBRAZOVKA 5 - MENIC / SCREEN 5 - INVERTER
+// CZ: Měnič – teplota, vstupní a výstupní výkon a účinnost.
+// EN: Inverter – temperature, input/output power, and efficiency.
 // ===========================================================================
 // Hruby okamzity odhad ucinnosti z vykonu vstupu a vystupu menice.
 // EN: Rough instantaneous efficiency estimate from inverter input and output power.
@@ -1581,19 +1664,20 @@ void scrInverter() {
 }
 
 // ===========================================================================
-// OBRAZOVKA 2 - ZIVOTNOST BATERII / SCREEN 2 - BATTERY LIFE
+// CZ: Životnost baterií – skupiny, odhad cyklů, zdraví a výměna.
+// EN: Battery life – groups, estimated cycles, health, and replacement.
 // ===========================================================================
+// CZ: Přepočítá vybité kWh od uloženého základu na ekvivalentní cykly banku.
+// EN: Convert discharged kWh since the saved baseline into equivalent bank cycles.
 float batteryExtraCycles() {
   if (!batteryCycleBaseValid || v_batt_energy_out <= batteryCycleBaseOut) return 0.0f;
-  // Osm baterii 12 V / 100 Ah tvori zhruba 19.2 kWh uloziste; jeden cyklus
-  // Osm baterii 12 V / 100 Ah tvori zhruba 19.2 kWh uloziste; jeden cyklus
-  // EN: Eight 12 V / 100 Ah batteries form roughly a 19.2 kWh bank; one cycle
-  // zde pocitame konzervativne z 9.6 kWh vybijeni (50 % hloubka vybijeni).
+  // CZ: Hrubý odhad počítá jeden ekvivalentní cyklus z 9,6 kWh vybití (50 % DoD).
+  // EN: This rough estimate counts one equivalent cycle per 9.6 kWh discharged (50% DoD).
   return (v_batt_energy_out - batteryCycleBaseOut) / 9.6f;
 }
 
-// Zalozi pocatecni stav citace a zachyti jeho pozdejsi reset.
-// EN: Establish the counter baseline and catch a later counter reset.
+// CZ: Nastaví základní stav počitadla vybité energie a zachytí jeho pozdější reset.
+// EN: Establish the discharged-energy counter baseline and detect later resets.
 void batteryUpdateBase() {
   if (v_batt_energy_out < 0) return;
   if (!batteryCycleBaseValid) {
@@ -1608,11 +1692,15 @@ void batteryUpdateBase() {
   }
 }
 
+// CZ: Sečte ručně zadané počáteční cykly skupiny a odhad společného provozu.
+// EN: Add the group's manually entered starting cycles to estimated shared usage.
 float batteryGroupCycles(uint8_t index) {
   if (index >= 4) return 0.0f;
   return batteryGroups[index].initialCycles + batteryExtraCycles();
 }
 
+// CZ: Odhadne průměrné ekvivalentní cykly za den z dostupné historie vybíjení.
+// EN: Estimate average equivalent cycles per day from available discharge history.
 float batteryAverageCyclesPerDay() {
   float energy = dayBattOut();
   for (int i = 0; i < HIST_DAYS; ++i) energy += hdBOut[i] / 10.0f;
@@ -1623,10 +1711,14 @@ float batteryAverageCyclesPerDay() {
   return max(1.0f, result);
 }
 
+// CZ: Odhadne zdraví skupiny lineárně podle cyklů vůči nastavené životnosti.
+// EN: Estimate group health linearly from cycles against the configured lifetime.
 float batteryHealth(uint8_t index) {
   return constrain(100.0f * (1.0f - batteryGroupCycles(index) / batteryRatedCycles), 0.0f, 100.0f);
 }
 
+// CZ: Vrátí orientační rok výměny zbylých cyklů a průměrného denního opotřebení.
+// EN: Estimate a replacement year from remaining cycles and average daily wear.
 int batteryReplacementYear(uint8_t index) {
   float remain = max(0.0f, batteryRatedCycles - batteryGroupCycles(index));
   float years = remain / max(0.01f, batteryAverageCyclesPerDay()) / 365.0f;
@@ -1655,14 +1747,14 @@ void scrBatteryLife() {
     tft.setTextDatum(TR_DATUM);
     tft.setTextColor(C_TXT, C_CARD); tCz(cyclesText, 306, y + 5);
     float ratio = batteryGroupCycles(i) / batteryRatedCycles;
-    bar(14, y + 39, 210, 7, ratio, batteryHealth(i) < batteryWarnPct ? C_GRID : C_BATT);
+    bar(14, y + 44, 210, 5, ratio, batteryHealth(i) < batteryWarnPct ? C_GRID : C_BATT);
     char replaceText[28];
     int replaceYear = batteryReplacementYear(i);
     snprintf(replaceText, sizeof(replaceText), "%s %d", TR(T_BAT_REPLACE), replaceYear);
     tft.setTextDatum(TL_DATUM);
-    tft.setTextColor(C_DIM, C_CARD); tCz(replaceText, 14, y + 25);
+    tft.setTextColor(C_DIM, C_CARD); tCz(replaceText, 14, y + 20);
     tft.setTextDatum(TR_DATUM);
-    tft.setTextColor(C_TXT, C_CARD); tCz(fmt("%.0f %%", batteryHealth(i)), 306, y + 25);
+    tft.setTextColor(C_TXT, C_CARD); tCz(fmt("%.0f %%", batteryHealth(i)), 306, y + 17);
     tft.setTextDatum(TL_DATUM);
   }
 
@@ -1684,7 +1776,8 @@ void scrBatteryLife() {
 }
 
 // ===========================================================================
-// OBRAZOVKA 6 - GRAFY za 24 hodin / SCREEN 6 - 24 HOUR CHARTS
+// CZ: Grafy za 24 hodin – denní průběhy výkonu, baterie a SOC.
+// EN: 24-hour charts – daily power, battery, and SOC traces.
 // ===========================================================================
 // levy okraj grafu, vlevo od nej je stupnice
 // EN: left edge of the chart, the scale sits to its left
@@ -1694,7 +1787,16 @@ void scrBatteryLife() {
 // pixelu na jeden desetiminutovy vzorek
 // EN: pixels per ten minute sample
 #define PLOT_STEP 2
+#define SOC_GRAPH_W 272
 
+// CZ: Přepočítá vzorek na užší osu SOC, aby vpravo zbylo místo pro napětí.
+// EN: Map a sample to the narrower SOC axis, leaving room for voltage at right.
+int socPlotX(int slot) {
+  return GR_L + 1 + (int)((long)slot * (SOC_GRAPH_W - 3) / (DAY_N - 1));
+}
+
+// CZ: Vykreslí denní výkon; po chybějících vzorcích použije odlišné spojení.
+// EN: Draw daily power and use a distinct connector across missing samples.
 void plotDay(int gy, int gh, int16_t* data, int maxV, uint16_t col, bool bipolar) {
   int prevX = -1, prevY = -1;
   bool gap = false;
@@ -1717,12 +1819,14 @@ void plotDay(int gy, int gh, int16_t* data, int maxV, uint16_t col, bool bipolar
   }
 }
 
+// CZ: Vykreslí desetiminutové vzorky stavu nabití baterie.
+// EN: Draw ten-minute battery state-of-charge samples.
 void plotDaySoc(int gy, int gh, uint16_t col) {
   int prevX = -1, prevY = -1;
   bool gap = false;
   for (int i = 0; i < DAY_N; i++) {
     if (!dHas[i]) { if (prevX >= 0) gap = true; continue; }
-    int x = PLOT_X0 + i * PLOT_STEP;
+    int x = socPlotX(i);
     int y = gy + gh - 1 - (int)((long)dSoc[i] * (gh - 2) / 100);
     if (prevX >= 0) tft.drawLine(prevX, prevY, x, y, gap ? C_GRID : col);
     else            tft.drawPixel(x, y, col);
@@ -1731,8 +1835,8 @@ void plotDaySoc(int gy, int gh, uint16_t col) {
   }
 }
 
-// Modra krivka napeti pouziva pevnou osu 22-30 V, aby se graf mezi dny nemenil.
-// EN: The blue voltage line uses a fixed 22-30 V axis so the chart stays comparable.
+// CZ: Modrá křivka napětí používá pevnou osu 22–30 V pro srovnatelnost grafu.
+// EN: The blue voltage trace uses a fixed 22–30 V axis for chart comparability.
 void plotDayBatteryVoltage(int gy, int gh, uint16_t col) {
   const int minV = 220, maxV = 300;
   int prevX = -1, prevY = -1;
@@ -1742,7 +1846,7 @@ void plotDayBatteryVoltage(int gy, int gh, uint16_t col) {
       if (prevX >= 0) gap = true;
       continue;
     }
-    int x = PLOT_X0 + i * PLOT_STEP;
+    int x = socPlotX(i);
     int value = constrain((int)dBattVoltage[i] + 200, minV, maxV);
     int y = gy + gh - 1 - (int)((long)(value - minV) * (gh - 2) / (maxV - minV));
     if (prevX >= 0) tft.drawLine(prevX, prevY, x, y, gap ? C_GRID : col);
@@ -1751,16 +1855,16 @@ void plotDayBatteryVoltage(int gy, int gh, uint16_t col) {
   }
 }
 
-// Prerusovana cara ukazuje optimisticky stav do zapadu slunce: cela zbyvajici
-// predikovana energie FVE by mohla nabit baterii.
+// CZ: Čárkovaná křivka odhaduje SOC do západu slunce při využití zbývající predikce FVE.
+// EN: The dashed curve estimates SOC through sunset using all remaining forecast PV energy.
 void plotSocForecast(int gy, int gh) {
   if (curSlot < 0 || v_batt_capacity <= 0 || sunSet <= 0) return;
   int endSlot = constrain(sunSet / 10, 0, DAY_N - 1);
   if (endSlot <= curSlot) return;
   float endSoc = min(100.0f, v_soc + w_pv_remaining / v_batt_capacity * 100.0f);
-  int x0 = PLOT_X0 + curSlot * PLOT_STEP;
+  int x0 = socPlotX(curSlot);
   int y0 = gy + gh - 1 - (int)(v_soc * (gh - 2) / 100.0f);
-  int x1 = PLOT_X0 + endSlot * PLOT_STEP;
+  int x1 = socPlotX(endSlot);
   int y1 = gy + gh - 1 - (int)(endSoc * (gh - 2) / 100.0f);
   for (int x = x0; x < x1; x += 5) {
     int xe = min(x + 2, x1);
@@ -1806,9 +1910,9 @@ void plotYesterdayTemp(int gy, int gh, const int8_t* data, int minV, int maxV) {
   }
 }
 
-// ramecek, vodorovne vodici linky, delici cary po 6 hodinach a znacka "ted"
-// EN: frame, horizontal guides, dividers every 6 hours and a "now" marker
-void graphFrame(int gy, int gh, const char* title, const char* right, uint16_t col) {
+// CZ: Vykreslí rámeček grafu libovolné šířky, mřížku, časové dělení a značku teď.
+// EN: Draw a chart frame of any width, including grid, time divisions, and now marker.
+void graphFrameSized(int gy, int gh, const char* title, const char* right, uint16_t col, int width) {
   tft.setTextColor(C_DIM, C_BG);
   tCz(title, GR_L, gy - 18);
   tft.setTextDatum(TR_DATUM);
@@ -1816,21 +1920,27 @@ void graphFrame(int gy, int gh, const char* title, const char* right, uint16_t c
   tCz(right, 314, gy - 18);
   tft.setTextDatum(TL_DATUM);
 
-  tft.fillRect(GR_L, gy, GR_WIDTH, gh, C_BG);
-  tft.drawRect(GR_L, gy, GR_WIDTH, gh, C_LINE);
+  tft.fillRect(GR_L, gy, width, gh, C_BG);
+  tft.drawRect(GR_L, gy, width, gh, C_LINE);
 
   for (int k = 1; k < 4; k++) {
     int y = gy + gh * k / 4;
-    for (int x = GR_L + 3; x < GR_L + GR_WIDTH - 2; x += 6) tft.drawPixel(x, y, C_CARD);
+    for (int x = GR_L + 3; x < GR_L + width - 2; x += 6) tft.drawPixel(x, y, C_CARD);
   }
   for (int h = 6; h < 24; h += 6) {
-    int x = PLOT_X0 + (h * 6) * PLOT_STEP;
+    int x = width == SOC_GRAPH_W ? socPlotX(h * 6) : PLOT_X0 + (h * 6) * PLOT_STEP;
     for (int y = gy + 3; y < gy + gh - 2; y += 5) tft.drawPixel(x, y, C_CARD);
   }
   if (curSlot >= 0) {
-    int x = PLOT_X0 + curSlot * PLOT_STEP;
+    int x = width == SOC_GRAPH_W ? socPlotX(curSlot) : PLOT_X0 + curSlot * PLOT_STEP;
     tft.drawFastVLine(x, gy + 1, gh - 2, C_LINE);
   }
+}
+
+// CZ: Zkrácená varianta rámečku pro standardní šířku grafu.
+// EN: Convenience wrapper for the standard-width chart frame.
+void graphFrame(int gy, int gh, const char* title, const char* right, uint16_t col) {
+  graphFrameSized(gy, gh, title, right, col, GR_WIDTH);
 }
 
 // Svisla stupnice vlevo od grafu - tri popisky u horni, stredni a dolni cary.
@@ -1844,6 +1954,8 @@ void yAxis(int gy, int gh, const char* top, const char* mid, const char* bot) {
   tft.setTextDatum(TL_DATUM);
 }
 
+// CZ: Popíše běžnou časovou osu v šestihodinových krocích.
+// EN: Label the standard time axis in six-hour intervals.
 void timeAxis(int y) {
   tft.setTextColor(C_DIM, C_BG);
   tft.setTextDatum(MC_DATUM);
@@ -1854,6 +1966,20 @@ void timeAxis(int y) {
   tft.setTextDatum(TL_DATUM);
 }
 
+// CZ: Popíše časovou osu SOC s upravenou šířkou vykreslovací plochy.
+// EN: Label the SOC time axis using its narrower plotting area.
+void timeAxisSoc(int y) {
+  tft.setTextColor(C_DIM, C_BG);
+  tft.setTextDatum(MC_DATUM);
+  for (int h = 0; h <= 24; h += 6) {
+    int x = socPlotX(h * 6);
+    tCz(fmt("%.0f", (float)h), constrain(x, GR_L, GR_L + SOC_GRAPH_W - 8), y);
+  }
+  tft.setTextDatum(TL_DATUM);
+}
+
+// CZ: Najde nejbližší existující bod grafu ve směru času.
+// EN: Find the nearest existing chart sample around a requested time slot.
 int nearestGraphSlot(int wanted) {
   wanted = constrain(wanted, 0, DAY_N - 1);
   if (dHas[wanted]) return wanted;
@@ -1871,14 +1997,15 @@ void graphCursorOverlay(int graphId, int gy, int gh, const char* label,
                         int y1, uint16_t col1, int y2, uint16_t col2) {
   if (!graphCursor.active || graphCursor.screenId != screen ||
       graphCursor.graphId != graphId || graphCursor.slot < 0) return;
-  int x = PLOT_X0 + graphCursor.slot * PLOT_STEP;
+  int width = graphId == 2 ? SOC_GRAPH_W : GR_WIDTH;
+  int x = graphId == 2 ? socPlotX(graphCursor.slot) : PLOT_X0 + graphCursor.slot * PLOT_STEP;
   tft.drawFastVLine(x, gy + 1, gh - 2, C_TXT);
   tft.fillCircle(x, y1, 3, col1);
   if (y2 >= 0) tft.fillCircle(x, y2, 3, col2);
 
   czOn();
-  int boxW = min(GR_WIDTH - 8, tft.textWidth(label) + 12);
-  int boxX = x > GR_L + GR_WIDTH / 2 ? GR_L + 4 : GR_L + GR_WIDTH - boxW - 4;
+  int boxW = min(width - 8, tft.textWidth(label) + 12);
+  int boxX = x > GR_L + width / 2 ? GR_L + 4 : GR_L + width - boxW - 4;
   tft.fillRoundRect(boxX, gy + 4, boxW, 22, 4, C_CARD);
   tft.drawRoundRect(boxX, gy + 4, boxW, 22, 4, C_TXT);
   tft.setTextDatum(MC_DATUM);
@@ -1887,8 +2014,9 @@ void graphCursorOverlay(int graphId, int gy, int gh, const char* label,
   tft.setTextDatum(TL_DATUM);
 }
 
+// CZ: Převede dotyk v grafu na vzorek a uloží jeho hodnotu pro zvýraznění.
+// EN: Convert a chart touch to a sample and retain its values for highlighting.
 bool selectGraphPoint(int x, int y) {
-  if (x < GR_L || x >= GR_L + GR_WIDTH) return false;
   int graphId = -1;
   if (screen == SCR_GRAPHS) {
     if (y >= 68 && y < 158) graphId = 0;
@@ -1899,8 +2027,12 @@ bool selectGraphPoint(int x, int y) {
     else if (y >= 272 && y < 392) graphId = 1;
   }
   if (graphId < 0) return false;
+  int width = screen == SCR_GRAPHS && graphId == 2 ? SOC_GRAPH_W : GR_WIDTH;
+  if (x < GR_L || x >= GR_L + width) return false;
 
-  int wanted = (x - PLOT_X0 + PLOT_STEP / 2) / PLOT_STEP;
+  int wanted = screen == SCR_GRAPHS && graphId == 2
+      ? (int)((long)(x - GR_L - 1) * (DAY_N - 1) / (SOC_GRAPH_W - 3))
+      : (x - PLOT_X0 + PLOT_STEP / 2) / PLOT_STEP;
   int slot = nearestGraphSlot(wanted);
   if (slot < 0) return true;
   graphCursor = {(int8_t)screen, (int8_t)graphId, (int16_t)slot, true};
@@ -1976,16 +2108,12 @@ void scrGraphs() {
   }
 
   // stav nabiti / state of charge
-  graphFrame(336, 60, TR(T_SOC), fmt("%.0f %%", v_soc), C_BATT);
+  graphFrameSized(336, 60, TR(T_SOC), fmt("%.0f %%", v_soc), C_BATT, SOC_GRAPH_W);
   plotDaySoc(336, 60, C_BATT);
   plotDayBatteryVoltage(336, 60, C_LOAD);
   plotSocForecast(336, 60);
   yAxis(336, 60, "100", "50", "0");
-  // Druha osa patri modre napetove krivce / the second axis belongs to voltage.
-  tft.setTextDatum(ML_DATUM);
-  tft.setTextColor(C_LOAD, C_BG);
-  tCz("30", 319, 344); tCz("26", 319, 366); tCz("22", 319, 390);
-  tft.setTextDatum(TL_DATUM);
+  // Pravou stupnici napeti kreslime jen jednou / Draw the right voltage scale only once.
   tft.setTextColor(C_BATT, C_BG); tCz("SOC", 116, 318);
   tft.setTextColor(C_LOAD, C_BG); tCz("V", 154, 318);
   if (graphCursor.active && graphCursor.screenId == screen && graphCursor.graphId == 2) {
@@ -2001,11 +2129,18 @@ void scrGraphs() {
     graphCursorOverlay(2, 336, 60, selected, socY, C_BATT, voltageY, C_LOAD);
   }
 
-  timeAxis(406);      // popisky 0 / 6 / 12 / 18 / 24 hodin / labels 0 / 6 / 12 / 18 / 24 hours
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(C_LOAD, C_BG);
+  tCz("30", 310, 344);
+  tCz("26", 310, 366);
+  tCz("22", 310, 388);
+  tft.setTextDatum(TL_DATUM);
+  timeAxisSoc(406);   // popisky 0 / 6 / 12 / 18 / 24 hodin / labels 0 / 6 / 12 / 18 / 24 hours
 }
 
 // ===========================================================================
-// OBRAZOVKA - TEPLOTY / SCREEN - TEMPERATURES
+// CZ: Teploty – dnešní a včerejší průběh měniče i venkovní teploty.
+// EN: Temperatures – today's and yesterday's inverter and outdoor traces.
 // ===========================================================================
 void scrTemperatures() {
   if (!timeOk) {
@@ -2062,7 +2197,8 @@ void scrTemperatures() {
 }
 
 // ===========================================================================
-// OBRAZOVKA - DOBEH BATERIE / SCREEN - BATTERY RUNTIME
+// CZ: Doběh baterie – odhad času do plného nabití nebo vybití.
+// EN: Battery runtime – estimated time to full charge or empty.
 // ===========================================================================
 void scrRuntime() {
   float h = battHours();
@@ -2113,8 +2249,11 @@ void scrRuntime() {
 }
 
 // ===========================================================================
-// OBRAZOVKA - HISTORIE POSLEDNICH 7 DNI / SCREEN - LAST 7 DAYS
+// CZ: Historie – denní nebo měsíční souhrny výroby, spotřeby a úspor.
+// EN: History – daily or monthly production, consumption, and savings totals.
 // ===========================================================================
+// CZ: Přidá dnešní průběžnou hodnotu k měsíčnímu součtu bez 16bitového přetečení.
+// EN: Add today's live value to a monthly total without 16-bit overflow.
 uint16_t monthWithToday(uint16_t stored, float today) {
   if (today <= 0) return stored;
   uint32_t add = (uint32_t)constrain(today * 10.0f, 0.0f, 65535.0f);
@@ -2255,13 +2394,14 @@ void scrHistory() {
 }
 
 // ===========================================================================
-// OBRAZOVKA - USPORY / SCREEN - SAVINGS
+// CZ: Úspory – denní, měsíční a roční vlastní spotřeba a její cena.
+// EN: Savings – daily, monthly, and yearly self-consumption and its value.
 // ===========================================================================
 void scrSavings() {
-  // dnesek / today
+  // CZ: Živé hodnoty dneška / EN: Today's live values.
   float dPvKwh = dayPv(), dSave = savedToday();
 
-  // aktualni mesic / current month
+  // CZ: Uzavřené součty aktuálního měsíce / EN: Closed totals for the current month.
   float mPv = 0, mLd = 0, mSv = 0;
   if (lastMon >= 0 && lastMon < 12) {
     mPv = hmPv[lastMon] / 10.0f;
@@ -2269,8 +2409,10 @@ void scrSavings() {
     mSv = hmSave[lastMon] / 10.0f;
   }
   float dLdKwh = dayLoad();
-  // Mesicni souhrn v NVS obsahuje jen uzavrene dny. Prubezny dnesek se
-  // prida pouze pro zobrazeni, aby se pri pulnoci nezapocital podruhe.
+  // CZ: NVS obsahuje jen uzavřené dny; dnešek se přidá pouze pro zobrazení,
+  //     aby se při uzavření dne nezapočítal podruhé.
+  // EN: NVS holds closed days only; add today for display so it is not counted
+  //     again when the day is closed.
   if (lastMon >= 0 && lastMon < 12) {
     mPv += dPvKwh; mLd += dLdKwh; mSv += dSave;
   }
@@ -2325,10 +2467,10 @@ void scrSavings() {
     tft.setTextDatum(TL_DATUM);
   }
 
-  // Sobestacnost pod tabulkou: pruh ukazuje, kolik spotreby pokryl vlastni
-  // zdroj. Barva se meni podle toho, jak dobre na tom dum je.
-  // EN: Self-sufficiency below the table: the bar shows how much of the
-  //     consumption our own source covered. The colour follows how well we do.
+  // CZ: Ukazatel pod tabulkou znázorňuje podíl spotřeby pokrytý vlastním zdrojem;
+  //     jeho barva se mění podle dosažené soběstačnosti.
+  // EN: The bar below the table shows the share of consumption covered by own
+  //     generation; its colour reflects the resulting self-sufficiency.
   int uy = y + 3 * (rowH + 6) + 2;
   float ss = selfSufficiency();
   uint16_t ssCol = ss >= 80 ? C_BATT : (ss >= 50 ? C_PV : C_GRID);
@@ -2413,8 +2555,8 @@ void scrSavings() {
   }
 }
 
-// Vybere sloupec úspor podle místa dotyku.
-// EN: Select a savings bar from the touch position.
+// CZ: Vybere denní sloupec úspor nejbližší místu dotyku.
+// EN: Select the daily savings bar nearest to the touch position.
 bool selectSavingsPoint(int x, int y) {
   const int gx = 32, gw = 282, gy = 328, gh = 70;
   if (hdCount <= 0 || x < gx || x >= gx + gw || y < gy || y >= gy + gh) return false;
@@ -2426,8 +2568,8 @@ bool selectSavingsPoint(int x, int y) {
   return true;
 }
 
-// Vybere mesic predikce podle mista dotyku.
-// EN: Select a forecast month from the touch position.
+// CZ: Vybere měsíc grafu predikce podle vodorovné souřadnice dotyku.
+// EN: Select a forecast month from the touch's horizontal position.
 bool selectForecastPoint(int x, int y) {
   const int gx = 32, gw = 282, gy = 196, gh = 184;
   if (x < gx || x >= gx + gw || y < gy || y >= gy + gh) return false;
@@ -2437,7 +2579,8 @@ bool selectForecastPoint(int x, int y) {
 }
 
 // ===========================================================================
-// OBRAZOVKA - DNES A VCERA / SCREEN - TODAY AND YESTERDAY
+// CZ: Dnes a včera – přímé porovnání výroby, spotřeby a teplot.
+// EN: Today and yesterday – direct comparison of production, consumption, and temperatures.
 // ===========================================================================
 void scrCompare() {
   float todayPv = dayPv(), todayLoad = dayLoad(), todaySave = savedToday();
@@ -2480,7 +2623,8 @@ void scrCompare() {
   tft.setTextColor(C_DIM, C_BG); tCz(TR(T_COMPARE_GRAPH), SCR_W / 2, 230);
   tft.setTextDatum(TL_DATUM);
   tft.drawRect(gx, gy, gw, gh, C_LINE);
-  // Jemne vodici linky zlepsi odečet vysky sloupcu.
+  // CZ: Jemná mřížka usnadňuje odečet výšky sloupců.
+  // EN: A subtle grid makes column heights easier to read.
   for (int k = 1; k < 4; k++) {
     int y = gy + gh * k / 4;
     for (int x = gx + 3; x < gx + gw - 2; x += 6) tft.drawPixel(x, y, C_CARD);
@@ -2510,12 +2654,17 @@ void scrCompare() {
 }
 
 // ===========================================================================
-// OBRAZOVKA - PREDIKCE USPORY / SCREEN - SAVINGS FORECAST
+// CZ: Predikce úspor – plán a skutečnost po měsících a za rok.
+// EN: Savings forecast – monthly and yearly plan versus actual totals.
 // ===========================================================================
+// CZ: Vrátí plánovanou úsporu daného měsíce podle sezónní tabulky a ceny energie.
+// EN: Return the month's planned savings from the seasonal table and energy price.
 float plannedSave(uint8_t mon) {
   return mon < 12 ? PLAN_OWN_KWH10[mon] * CFG_PRICE / 10.0f : 0;
 }
 
+// CZ: Vrátí skutečnou úsporu měsíce včetně průběžné hodnoty dneška.
+// EN: Return actual monthly savings, including today's live value.
 float actualMonthSave(uint8_t mon) {
   float value = mon < 12 ? hmSave[mon] / 10.0f : 0;
   if (mon == lastMon) value += savedToday();
@@ -2597,8 +2746,11 @@ void scrForecast() {
 }
 
 // ===========================================================================
-// OBRAZOVKA - O APLIKACI / SCREEN - ABOUT
+// CZ: O aplikaci – firmware, hardware, paměť, síť a kontaktní údaje.
+// EN: About – firmware, hardware, memory, network, and contact details.
 // ===========================================================================
+// CZ: Vykreslí neměnné logo při startu a na obrazovce O aplikaci.
+// EN: Draw the static logo used at startup and on the About screen.
 void drawLogo(int y) {
   const uint16_t LOGO_BG   = C_PV;
   const uint16_t LOGO_DARK = 0x21AB;
@@ -2628,16 +2780,22 @@ const uint32_t ROI_STEPS[] = {1, 10, 100, 1000, 10000};
 uint8_t roiMoneyStep = 3, roiEnergyStep = 1, roiDatePart = 0;
 bool roiSaveFailed = false;
 
+// CZ: Vrátí počet dnů v měsíci včetně pravidla přestupných roků.
+// EN: Return the number of days in a month, including leap-year rules.
 constexpr int roiMonthDays(int year, int month) {
   const uint8_t days[] = {31,28,31,30,31,30,31,31,30,31,30,31};
   if (month < 1 || month > 12) return 0;
   return days[month-1] + (month == 2 && year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
 }
 
+// CZ: Ověří datum pro ručně zadaný počátek investice.
+// EN: Validate a user-entered investment start date.
 constexpr bool roiValidDate(int year, int month, int day) {
   return year >= 2000 && year <= 2199 && day >= 1 && day <= roiMonthDays(year, month);
 }
 
+// CZ: Převede datum na průběžný počet dnů pro výpočet doby návratnosti.
+// EN: Convert a date to a day number for payback-duration calculations.
 constexpr int roiDayNumber(int year, int month, int day) {
   int result = day - 1;
   for (int y = 2000; y < year; ++y) result += 337 + roiMonthDays(y, 2);
@@ -2645,6 +2803,8 @@ constexpr int roiDayNumber(int year, int month, int day) {
   return result;
 }
 
+// CZ: Upraví hodnotu po zvoleném kroku a omezí ji do platného rozsahu.
+// EN: Adjust a value by one step and clamp it to the supported range.
 constexpr uint32_t roiAdjust(uint32_t value, uint32_t step, bool increase) {
   return increase ? (step > ROI_MAX - value ? ROI_MAX : value + step)
                   : (value < step ? 0 : value - step);
@@ -2659,6 +2819,8 @@ static_assert(roiAdjust(0, 10000, false) == 0, "ROI lower bound");
 static_assert(roiAdjust(ROI_MAX - 1, 10000, true) == ROI_MAX, "ROI upper bound");
 static_assert(roiAdjust(6000, 10, true) == 6010, "ROI manual increment");
 
+// CZ: Načte investici, ruční spotřebu a datum; chybný blok NVS ignoruje.
+// EN: Load investment, manual energy, and date; ignore an invalid NVS record.
 void roiLoad() {
   RoiState stored = {};
   if (prefs.getBytesLength("roi1") != sizeof(stored)) return;
@@ -2668,6 +2830,8 @@ void roiLoad() {
   roi = stored;
 }
 
+// CZ: Vykreslí jednotné tlačítko plus/mínus na stránce návratnosti.
+// EN: Draw a consistent plus/minus button on the payback screen.
 void roiButton(int x, int y, const char* label) {
   tft.fillRoundRect(x, y, 42, 34, 5, C_LINE);
   tft.setTextDatum(MC_DATUM);
@@ -2676,6 +2840,8 @@ void roiButton(int x, int y, const char* label) {
   tft.setTextDatum(TL_DATUM);
 }
 
+// CZ: Vykreslí řádek nastavení návratnosti včetně aktuálního kroku změny.
+// EN: Draw one payback setting row with its current adjustment step.
 void roiRow(int y, const char* label, const char* value, uint32_t step) {
   uiPanel(6, y, 308, 70);
   tft.setTextDatum(MC_DATUM);
@@ -2755,6 +2921,8 @@ void scrRoi() {
   tft.setTextDatum(TL_DATUM);
 }
 
+// CZ: Zpracuje dotyky ovládacích prvků návratnosti a uloží změny.
+// EN: Handle touches on payback controls and persist their changes.
 void roiTouch(int x, int y) {
   RoiState before = roi;
   if ((y >= 46 && y < 116) || (y >= 120 && y < 190)) {
@@ -2819,9 +2987,9 @@ void scrAbout() {
 // ===========================================================================
 // OTA - aktualizace firmwaru pres WiFi / OTA - firmware update over Wi-Fi
 // ===========================================================================
+// CZ: Zobrazí stav OTA a rozsvítí displej, aby byl průběh aktualizace viditelný.
+// EN: Show OTA status and wake the display so update progress stays visible.
 void otaScreen(const char* text, uint16_t col) {
-  // pri aktualizaci musi byt videt prubeh
-  // EN: progress must stay visible during an update
   screenOn = true;
   PWM_WRITE(TFT_BL, 3, 255);
   tft.fillScreen(C_BG);
@@ -2831,6 +2999,8 @@ void otaScreen(const char* text, uint16_t col) {
   tft.setTextDatum(TL_DATUM);
 }
 
+// CZ: Nastaví hostname, heslo a callbacky průběhu, dokončení a chyby OTA.
+// EN: Configure the OTA hostname, password, and progress/end/error callbacks.
 void setupOTA() {
   ArduinoOTA.setHostname(OTA_HOST);
   if (strlen(OTA_PASSWORD) > 0) ArduinoOTA.setPassword(OTA_PASSWORD);
@@ -2868,7 +3038,8 @@ void setupOTA() {
 }
 
 // ===========================================================================
-// OBRAZOVKA 8 - NASTAVENI 2 / SCREEN 8 - SETTINGS 2
+// CZ: Nastavení 2 – jazyk, obnovování, displej, limity LED a cena energie.
+// EN: Settings 2 – language, refresh, display, LED thresholds, and energy price.
 // Vsechny hodnoty se ukladaji do NVS, takze prezijou restart.
 // EN: Every value is stored in NVS, so they survive a reboot.
 // Kalibrace dotyku je ulozena zvlast pro kazde otoceni displeje.
@@ -2879,6 +3050,8 @@ void setupOTA() {
 #define S2_STEP  34
 #define S2_ROWS  11
 
+// CZ: Omezí všechny načtené indexy a limity na podporované rozsahy.
+// EN: Clamp all loaded setting indexes and limits to supported ranges.
 void cfgClamp() {
   if (lang    >= LANG_N)           lang    = LANG_CZ;
   if (iFetch  >= OPT_N(OPT_FETCH))  iFetch  = 1;
@@ -2897,9 +3070,13 @@ void cfgClamp() {
   if (iErrLed    >= OPT_N(OPT_ERR_LED))    iErrLed = 1;
   if (iGridLimit >= OPT_N(OPT_GRID_LIMIT)) iGridLimit = 3;
   if (iGridTime  >= OPT_N(OPT_GRID_TIME))  iGridTime = 3;
+  if (iPvVoltLimit < 25 || iPvVoltLimit > 80) iPvVoltLimit = 30;
 }
 
+// CZ: Načte aktuální konfiguraci NVS a podle potřeby migruje původní klíče.
+// EN: Load the current NVS configuration and migrate legacy keys when needed.
 void cfgLoad() {
+  iPvVoltLimit = prefs.getUChar("pvVL", 30);
   if (prefs.getBytesLength("cfgV2") == sizeof(ConfigPersist)) {
     ConfigPersist data;
     if (prefs.getBytes("cfgV2", &data, sizeof(data)) == sizeof(data) && data.version == 2) {
@@ -2933,14 +3110,18 @@ void cfgLoad() {
   cfgClamp();
 }
 
+// CZ: Uloží konfiguraci do verzovaného bloku a samostatný limit FV napětí.
+// EN: Save settings to the versioned block and the separate PV-voltage limit key.
 void cfgSave() {
   ConfigPersist data = {2, lang, iFetch, iSleep, iBright, iRange, iGreen, iOrange, iRot,
                         iBlink, iPrice, iCurr, iAlertSoc, iAlertTemp, iStale, iErrLed,
                         iGridLimit, iGridTime};
   prefs.putBytes("cfgV2", &data, sizeof(data));
+  prefs.putUChar("pvVL", iPvVoltLimit);
 }
 
-// text hodnoty pro dany radek / value text for the given row
+// CZ: Vrátí formátovanou hodnotu pro vybraný řádek nastavení.
+// EN: Return the formatted value for a settings row.
 const char* cfgValue(int row) {
   switch (row) {
     case 0: return LANG_NAME[lang];
@@ -2958,6 +3139,8 @@ const char* cfgValue(int row) {
   }
 }
 
+// CZ: Vrátí ID lokalizovaného popisku pro řádek první stránky nastavení.
+// EN: Return the localized label ID for a row on the first settings page.
 int cfgLabel(int row) {
   switch (row) {
     case 0:  return T_LANGUAGE;
@@ -2987,8 +3170,8 @@ void scrSettings2() {
   }
 }
 
-// posun na dalsi hodnotu v radku a okamzite uplatneni
-// EN: advance the row to the next value and apply it at once
+// CZ: Posune nastavení vybraného řádku, ihned aplikuje změnu a uloží ji.
+// EN: Advance one setting, apply it immediately, and persist the change.
 void cfgNext(int row) {
   switch (row) {
     case 0: lang    = (lang + 1) % LANG_N;                  break;
@@ -3017,11 +3200,20 @@ void cfgNext(int row) {
   drawScreen();
 }
 
-#define S3_Y0  48
-#define S3_H   43
-#define S3_STEP 48
-#define S3_ROWS 6
+// CZ: Upozornění – limity SOC, teploty, výpadku, sítě a práh informační ikony FV.
+// EN: Alerts – SOC, temperature, outage, and grid limits plus the PV status-icon threshold.
+// CZ: Následující konstanty určují geometrii řádků a tlačítek napětí FV.
+// EN: The following constants define row and PV-voltage button geometry.
+#define S3_Y0  46
+#define S3_H   39
+#define S3_STEP 42
+#define S3_ROWS 7
+#define PV_VOLT_MINUS_X 198
+#define PV_VOLT_PLUS_X 282
+#define PV_VOLT_BTN_W 32
 
+// CZ: Vrátí lokalizovaný název režimu LED při chybě.
+// EN: Return the localized name of the LED-on-error mode.
 const char* errLedName() {
   switch (CFG_ERR_LED) {
     case 0: return TR(T_OFF);
@@ -3032,6 +3224,8 @@ const char* errLedName() {
   }
 }
 
+// CZ: Vrátí zobrazenou hodnotu pro řádek limitů upozornění.
+// EN: Return the displayed value for an alert-limit row.
 const char* cfg3Value(int row) {
   switch (row) {
     case 0: return fmt("%.0f %%", (float)CFG_ALERT_SOC);
@@ -3039,10 +3233,13 @@ const char* cfg3Value(int row) {
     case 2: return fmt("%.0f min", CFG_STALE / 60000.0f);
     case 3: return errLedName();
     case 4: return CFG_GRID_LIMIT == 0 ? TR(T_OFF) : fmt("%.1f kW", CFG_GRID_LIMIT / 1000.0f);
-    default: return fmt("%.0f min", (float)CFG_GRID_TIME);
+    case 5: return fmt("%.0f min", (float)CFG_GRID_TIME);
+    default: return fmt("%.0f V", (float)CFG_PV_VOLT_LIMIT);
   }
 }
 
+// CZ: Vrátí překladové ID popisku limitu upozornění.
+// EN: Return the translation ID for an alert-limit label.
 int cfg3Label(int row) {
   switch (row) {
     case 0: return T_ALERT_SOC_LIMIT;
@@ -3050,36 +3247,59 @@ int cfg3Label(int row) {
     case 2: return T_ALERT_OFFLINE;
     case 3: return T_ERR_LED;
     case 4: return T_GRID_LIMIT;
-    default: return T_GRID_TIME;
+    case 5: return T_GRID_TIME;
+    default: return T_PV_VOLT_LIMIT;
   }
 }
 
+// CZ: Vykreslí stránku nastavitelných limitů upozornění.
+// EN: Draw the page of configurable alert limits.
 void scrSettings3() {
   for (int i = 0; i < S3_ROWS; i++) {
     int y = S3_Y0 + i * S3_STEP;
     uiPanel(6, y, 308, S3_H);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(C_TXT, C_CARD); tCz(TR(cfg3Label(i)), 100, y + S3_H / 2);
-    tft.setTextColor(C_PV, C_CARD); tCz(cfg3Value(i), 255, y + S3_H / 2);
+    if (i == 6) {
+// CZ: Vykresli tlačítka −/+ pro ruční změnu napěťového limitu FV.
+// EN: Draw the minus/plus buttons for manual adjustment of the PV voltage limit.
+      const int btnY = y + 5;
+      tft.drawRoundRect(PV_VOLT_MINUS_X, btnY, PV_VOLT_BTN_W, 29, 6, C_PV);
+      tft.drawRoundRect(PV_VOLT_PLUS_X, btnY, PV_VOLT_BTN_W, 29, 6, C_PV);
+      tft.setTextColor(C_PV, C_CARD);
+      tCz("-", PV_VOLT_MINUS_X + PV_VOLT_BTN_W / 2, y + S3_H / 2);
+      tCz("+", PV_VOLT_PLUS_X + PV_VOLT_BTN_W / 2, y + S3_H / 2);
+      tCz(cfg3Value(i), 256, y + S3_H / 2);
+    } else {
+      tft.setTextColor(C_PV, C_CARD); tCz(cfg3Value(i), 255, y + S3_H / 2);
+    }
     tft.setTextDatum(TL_DATUM);
   }
   tft.setTextDatum(MC_DATUM);
-  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_TAP_HINT), SCR_W / 2, 356);
+  tft.setTextColor(C_DIM, C_BG); tCz(TR(T_TAP_HINT), SCR_W / 2, 358);
   tft.setTextDatum(TL_DATUM);
 }
 
-void cfg3Next(int row) {
+// CZ: Posune limit upozornění a po změně obnoví jeho vyhodnocení i uložení.
+// EN: Advance an alert limit, then reevaluate and persist it.
+void cfg3Next(int row, int8_t direction = 1) {
   switch (row) {
     case 0: iAlertSoc = (iAlertSoc + 1) % OPT_N(OPT_ALERT_SOC); break;
     case 1: iAlertTemp = (iAlertTemp + 1) % OPT_N(OPT_ALERT_TEMP); break;
     case 2: iStale = (iStale + 1) % OPT_N(OPT_STALE); break;
     case 3: iErrLed = (iErrLed + 1) % OPT_N(OPT_ERR_LED); updateLoadLed(); break;
     case 4: iGridLimit = (iGridLimit + 1) % OPT_N(OPT_GRID_LIMIT); break;
-    default: iGridTime = (iGridTime + 1) % OPT_N(OPT_GRID_TIME); break;
+    case 5: iGridTime = (iGridTime + 1) % OPT_N(OPT_GRID_TIME); break;
+    default:
+      if (direction < 0) iPvVoltLimit = iPvVoltLimit <= 25 ? 80 : iPvVoltLimit - 1;
+      else               iPvVoltLimit = iPvVoltLimit >= 80 ? 25 : iPvVoltLimit + 1;
+      break;
   }
   cfgSave(); drawScreen();
 }
 
+// CZ: Vykreslí poslední události výpadků a nabídne smazání jejich seznamu.
+// EN: Draw the latest outage/error events and provide a clear-list action.
 void scrErrors() {
   if (errCount == 0) {
     tft.setTextDatum(MC_DATUM); tft.setTextColor(C_BATT, C_BG); tCz(TR(T_NO_ERRORS), 160, 180); tft.setTextDatum(TL_DATUM);
@@ -3106,7 +3326,8 @@ void scrErrors() {
 }
 
 // ===========================================================================
-// OBRAZOVKA 7 - NASTAVENI / SCREEN 7 - SETTINGS
+// CZ: Nastavení – stav zařízení a nástroje pro diagnostiku a restart.
+// EN: Settings – device status, diagnostics, and restart controls.
 // ===========================================================================
 #define SET_BTN_Y  282
 #define SET_BTN_H   52
@@ -3246,12 +3467,10 @@ float battHours() {
 
 // ===========================================================================
 // USPORNY REZIM DISPLEJE / DISPLAY SLEEP MODE
-// Po CFG_SLEEP necinnosti zhasne podsviceni. Dotykovy radic bezi dal, takze
-// EN: After CFG_SLEEP of inactivity the backlight goes off. Touch keeps running, so
-// prvni dotek displej jen probudi a uz nic dalsiho neprovede.
-// EN: the first touch only wakes the display and does nothing else.
-// Stahovani dat, historie i signalizacni dioda bezi bez zmeny.
-// EN: Data fetching, history and the signalling LED keep running unchanged.
+// CZ: Po CFG_SLEEP nečinnosti zhasne podsvícení, ale dotykový řadič zůstává aktivní;
+//     první dotek jen probudí displej. Načítání, historie a LED běží dál.
+// EN: After CFG_SLEEP of inactivity the backlight turns off, but touch remains active;
+//     the first tap only wakes the display. Fetching, history, and LED keep running.
 // ===========================================================================
 void screenSleep() {
   if (!screenOn) return;
@@ -3260,6 +3479,8 @@ void screenSleep() {
   Serial.println("displej zhasnut (necinnost)");
 }
 
+// CZ: Obnoví čas nečinnosti, podsvícení a celý obsah po probuzení dotykem.
+// EN: Reset inactivity, restore backlight, and redraw the screen after a touch wake.
 void screenWake() {
   lastTouch = millis();
   if (screenOn) return;
@@ -3284,12 +3505,14 @@ const ScreenDefinition screenDefinitions[] = {
 };
 static_assert(sizeof(screenDefinitions) / sizeof(screenDefinitions[0]) == SCREENS, "Screen count mismatch");
 
+// CZ: Vrátí lokalizovaný název stránky podle jejího indexu.
+// EN: Return the localized title for a screen index.
 const char* screenName(int i) {
   return TR(screenDefinitions[i >= 0 && i < SCREENS ? i : SCR_ABOUT].title);
 }
 
-// Tematicka ikonka stranky; -1 znamena, ze v zahlavi zustane vice mista.
-// EN: Page theme icon; -1 leaves more room in the header.
+// CZ: Přiřadí stránce motivovou ikonu; -1 ponechá více místa nadpisu.
+// EN: Map a page to its theme icon; -1 reserves more room for its title.
 int pageIcon(int page) {
   switch (page) {
     case SCR_BATTERY: return UI_ICON_BATTERY;
@@ -3315,6 +3538,8 @@ int pageIcon(int page) {
   }
 }
 
+// CZ: Vykreslí jednotnou hlavičku, stav spojení/upozornění, čas a průběhové linky.
+// EN: Draw the shared header, connection/alert status, clock, and progress bars.
 void drawHeader() {
   updateClock();
   // zhasnuto - nema smysl posilat data na displej
@@ -3332,59 +3557,25 @@ void drawHeader() {
   uint16_t dot = !wifiOk ? C_GRID : (stale ? C_GRID : (dataOk ? C_BATT : C_PV));
   tft.fillCircle(SCR_W - 14, 20, 5, dot);
 
-  // odpocet do dalsi obnovy, pri starych datech misto nej jejich stari
-  // EN: countdown to the next refresh, replaced by the data age when stale
-  uint32_t elapsed = millis() - lastFetch;
-  if (elapsed > CFG_FETCH) elapsed = CFG_FETCH;
-  int left = (CFG_FETCH - elapsed + 999) / 1000;
-
-  char buf[28];
-  if (!wifiOk)      snprintf(buf, sizeof(buf), TR(T_NO_WIFI));
-  else if (stale)   snprintf(buf, sizeof(buf), TR(T_OLD_MIN),
-                             haveFetch ? (millis() - lastOkFetch) / 60000 : 0);
-  else              snprintf(buf, sizeof(buf), TR(T_IN_SEC), left);
-
-  if (screen == SCR_OVERVIEW) {
-    // Na prehledu patri vlevo cely nazev a vpravo hodiny misto odpoctu.
-    // EN: The overview shows the full name left and the clock instead of the countdown right.
-    tft.setTextDatum(TL_DATUM);
-    tft.setTextColor(C_TXT, hdrBg);
-    tCz(screenName(screen), 8, 10);
-    tft.setTextDatum(TR_DATUM);
-    tft.setTextColor(timeOk ? C_TXT : C_DIM, hdrBg);
-    tCz(clockStr, SCR_W - 26, 12);
-    tft.setTextDatum(TL_DATUM);
-  } else {
-    // Pred kreslenim se zmeri vsechna tri pole; dlouhe nazvy pouziji dva radky.
-    // EN: All three fields are measured before drawing; long titles use two rows.
-    czOn();
-    int icon = pageIcon(screen);
-    int titleX = icon >= 0 ? UI_ICON_SIZE + 8 : 8;
-    if (icon >= 0) drawUiIcon((uint8_t)icon, 0, 1);
-    int wTitle = tft.textWidth(screenName(screen));
-    int wClock = tft.textWidth(clockStr);
-    int wStatus = tft.textWidth(buf);
-    int cxMin = titleX + wTitle + (wClock + 1) / 2 + 8;
-    int cxMax = SCR_W - 34 - wStatus - (wClock + 1) / 2;
-    bool twoRows = cxMin > cxMax;
-    int clockX = twoRows ? (icon >= 0 ? 46 + (wClock + 1) / 2 : 8 + (wClock + 1) / 2)
-                         : constrain(SCR_W / 2, cxMin, cxMax);
-    tft.setTextDatum(TL_DATUM);
-    tft.setTextColor(C_TXT, hdrBg);
-    tCz(screenName(screen), titleX, twoRows ? 1 : 10);
-    tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(timeOk ? C_TXT : C_DIM, hdrBg);
-    tCz(clockStr, clockX, twoRows ? 25 : 19);
-    tft.setTextDatum(TR_DATUM);
-    tft.setTextColor(stale ? C_TXT : C_DIM, hdrBg);
-    tCz(buf, SCR_W - 26, twoRows ? 18 : 12);
-    tft.setTextDatum(TL_DATUM);
-  }
+  // Jednotna hlavicka: nazev vlevo, hodiny vpravo, bez odpoctu.
+  // EN: Unified header: title left, clock right, with no countdown.
+  int icon = pageIcon(screen);
+  int titleX = screen == SCR_OVERVIEW ? 8 : (icon >= 0 ? UI_ICON_SIZE + 8 : 8);
+  if (icon >= 0 && screen != SCR_OVERVIEW) drawUiIcon((uint8_t)icon, 0, 1);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(C_TXT, hdrBg);
+  tCz(screenName(screen), titleX, 10);
+  tft.setTextDatum(TR_DATUM);
+  tft.setTextColor(timeOk ? C_TXT : C_DIM, hdrBg);
+  tCz(clockStr, SCR_W - 26, 12);
+  tft.setTextDatum(TL_DATUM);
 
   // Dva tenke pruhy po spodnim okraji hlavicky:
   // EN: Two thin bars along the bottom edge of the header:
   // horni zeleny = do dalsiho nacteni dat, dolni modry = do zhasnuti displeje.
   // EN: upper green = to the next fetch, lower blue = to the display going dark.
+  uint32_t elapsed = millis() - lastFetch;
+  if (elapsed > CFG_FETCH) elapsed = CFG_FETCH;
   int pw = (int)((long)elapsed * SCR_W / CFG_FETCH);
   tft.fillRect(0, HDR_H - 6, SCR_W, 3, hdrBg);
   if (pw > 0) tft.fillRect(0, HDR_H - 6, pw, 3, dot);
@@ -3398,6 +3589,8 @@ void drawHeader() {
   }
 }
 
+// CZ: Vykreslí spodní navigační tlačítka a tečky aktuální stránky.
+// EN: Draw the bottom navigation buttons and current-page indicator dots.
 void drawNav() {
   tft.fillRect(0, NAV_Y - 2, SCR_W, SCR_H - NAV_Y + 2, C_BG);
   tft.drawFastHLine(0, NAV_Y - 2, SCR_W, C_LINE);
@@ -3445,10 +3638,8 @@ void drawFrame() {
   tft.drawRect(1, CONT_Y + 1, SCR_W - 2, CONT_H - 2, C_GRID);
 }
 
-// Prekresleni obrazovky. Plocha se vzdy nejdriv smaze, jinak by po kratsi
-// EN: Screen redraw. The area is always cleared first, otherwise a shorter
-// hodnote zbyvaly zbytky te predchozi.
-// EN: value would leave remnants of the previous one.
+// CZ: Kompletně překreslí obsah stránky a společné prvky v jedné SPI transakci.
+// EN: Redraw the page and shared chrome in one SPI transaction.
 void drawScreen() {
   if (!screenOn) return;
   // Jedna SPI transakce zkrati viditelne mazani a prekresleni cele stranky.
@@ -3462,8 +3653,8 @@ void drawScreen() {
   tft.endWrite();
 }
 
-// Pri animaci se prekresli jen oblast aktualniho ukazatele, ne cela obrazovka.
-// EN: During animation only the current gauge area is redrawn, never the full screen.
+// CZ: Dílčí překreslení půlkruhů pro animaci; nyní se animace dat záměrně nespouští.
+// EN: Partial gauge redraw for animation; data animations are currently disabled.
 void drawAnimatedGauges() {
   if (!screenOn) return;
   tft.startWrite();
@@ -3482,6 +3673,7 @@ void drawAnimatedGauges() {
       halfGauge(236, 394, 62, 13, fabsf(batt), CFG_RANGE / 2,
                 batt >= 0 ? C_BATT : C_GRID, fmtSigned(v_batt_power),
                 batt >= 0 ? TR(T_BATT_CHG) : TR(T_BATT_DIS));
+      drawPvDisconnectedBadge();
       break;
     }
     case SCR_BATTERY: {
@@ -3689,9 +3881,12 @@ void pushHistory() {
 
 // ---------------------------------------------------------------------------
 // DENNI A MESICNI SOUHRNY / DAILY AND MONTHLY TOTALS
-// Uklada se do NVS, takze prezijou i odpojeni napajeni.
-// EN: Stored in NVS, so they survive a power cut.
+// CZ: Souhrny se ukládají do NVS, takže přežijí restart i odpojení napájení.
+// EN: Totals are stored in NVS, so they survive a reboot or power cut.
 // ---------------------------------------------------------------------------
+
+// CZ: Zapíše souhrny dnů a měsíců do jednoho verzovaného bloku NVS.
+// EN: Persist daily and monthly totals in one versioned NVS block.
 void sumSave() {
   SummaryPersist data;
   memcpy(data.hdPv, hdPv, sizeof(hdPv)); memcpy(data.hdLoad, hdLoad, sizeof(hdLoad));
@@ -3705,6 +3900,8 @@ void sumSave() {
   prefs.putBytes("sumV2", &data, sizeof(data));
 }
 
+// CZ: Načte souhrny NVS, migruje staré klíče a ověří pozici kruhového seznamu.
+// EN: Load NVS totals, migrate legacy keys, and validate the ring-buffer indexes.
 void sumLoad() {
   if (prefs.getBytesLength("sumV2") == sizeof(SummaryPersist)) {
     SummaryPersist data;
@@ -3755,6 +3952,8 @@ float dayBattOut()  { return v_batt_energy_out > baseBattOut ? v_batt_energy_out
 // EN: production is the only value the API already reports per day
 float dayPv()       { return w_pv_generated; }
 
+// CZ: Uloží denní základy kumulativních počitadel a jejich příznak platnosti.
+// EN: Save daily cumulative-counter baselines and their validity flag.
 void baseSave() {
   prefs.putFloat("bLoad",    baseLoad);
   prefs.putFloat("bGridIn",  baseGridIn);
@@ -3763,6 +3962,8 @@ void baseSave() {
   prefs.putBool("bValid",    baseValid);
 }
 
+// CZ: Obnoví z NVS základy kumulativních počitadel a jejich platnost.
+// EN: Restore cumulative-counter baselines and their validity flag from NVS.
 void baseLoadFromNvs() {
   baseLoad    = prefs.getFloat("bLoad",    0);
   baseGridIn  = prefs.getFloat("bGridIn",  0);
@@ -3771,8 +3972,8 @@ void baseLoadFromNvs() {
   baseValid   = prefs.getBool("bValid", false);
 }
 
-// nastavi zaklad na aktualni stav pocitadel
-// EN: sets the baseline to the current counter state
+// CZ: Nastaví všechny denní základy na aktuální stav počitadel měniče.
+// EN: Set all daily baselines to the inverter's current counter values.
 void baseReset() {
   baseLoad    = v_load_energy;
   baseGridIn  = v_grid_energy_in;
@@ -3807,19 +4008,23 @@ float changePct(float now, float before) {
   return (now - before) / before * 100.0f;
 }
 
-// vcerejsi uspora z ulozene historie / yesterday's savings from stored history
+// CZ: Vrátí včerejší úsporu z posledního uzavřeného dne v kruhové historii.
+// EN: Return yesterday's savings from the most recently closed history day.
 float yesterdaySave() {
   if (hdCount < 1) return 0;
   return hdSave[(hdPos - 1 + HIST_DAYS) % HIST_DAYS] / 10.0f;
 }
 
+// CZ: Vypočítá dnešní finanční úsporu z vlastní energie a nastavené ceny.
+// EN: Calculate today's monetary savings from self-supplied energy and its price.
 float savedToday() {
   float own = dayLoad() - dayGridIn();
   if (own < 0) own = 0;
   return own * CFG_PRICE;
 }
 
-// Rocni uspora vcetne prubezneho dneska / yearly savings including today.
+// CZ: Sečte měsíční úspory roku a přidá průběžný dnešek právě jednou.
+// EN: Sum yearly monthly savings and include today's live amount exactly once.
 float savedYear() {
   float total = 0;
   for (int i = 0; i < 12; ++i) total += hmSave[i] / 10.0f;
@@ -3827,10 +4032,14 @@ float savedYear() {
   return total;
 }
 
+// CZ: Přičte hodnotu bez přetečení 16bitového měsíčního součtu.
+// EN: Add a value without overflowing a 16-bit monthly total.
 void satAdd(uint16_t& total, uint16_t value) {
   total = value > (uint16_t)(65535U - total) ? 65535U : total + value;
 }
 
+// CZ: Uloží souhrn včerejška a komprimované teplotní řady do jednoho bloku.
+// EN: Save yesterday's summary and compressed temperature traces in one block.
 void yesterdaySummarySave() {
   YesterdayPersist data;
   data.summary = yesterday;
@@ -3838,6 +4047,8 @@ void yesterdaySummarySave() {
   memcpy(data.outTemp, yOutTemp, sizeof(yOutTemp));
   prefs.putBytes("yDayV2", &data, sizeof(data));
 }
+// CZ: Načte souhrn včerejška nebo migruje dřívější samostatné záznamy.
+// EN: Load yesterday's summary or migrate the former individual records.
 void yesterdaySummaryLoad() {
   if (prefs.getBytesLength("yDayV2") == sizeof(YesterdayPersist)) {
     YesterdayPersist data;
@@ -3988,10 +4199,8 @@ uint32_t uptimeSec() {
   return msWraps * 4294967UL + msLast / 1000;
 }
 
-// Doba behu pro zobrazeni. Po prvnim dni uz minuty nikoho nezajimaji,
-// proto se prepne na dny a hodiny.
-// EN: Uptime for display. After the first day the minutes stop being useful,
-//     so it switches to days and hours.
+// CZ: Formátuje dobu běhu v letech, měsících, dnech, hodinách a minutách.
+// EN: Format uptime as years, months, days, hours, and minutes.
 const char* uptimeText() {
   uint32_t sec = uptimeSec();
   uint32_t days = sec / 86400UL;
@@ -4008,12 +4217,14 @@ const char* uptimeText() {
   return value;
 }
 
-// stari dat - kdyz se dlouho nic nenacetlo, nesmi displej tvarit, ze je vse v poradku
-// EN: data age - after a long silence the display must not pretend all is well
+// CZ: Ohlásí zastaralá data, pokud od posledního úspěšného načtení uplynul limit.
+// EN: Mark data stale when the configured interval since the last successful fetch expires.
 bool dataStale() {
   return !haveFetch || (millis() - lastOkFetch) > CFG_STALE;
 }
 
+// CZ: Načte lokální čas do řetězce hlavičky, pokud je NTP čas dostupný.
+// EN: Update the header clock string when synchronized local time is available.
 void updateClock() {
   struct tm t;
   if (getLocalTime(&t, 5)) {
@@ -4026,19 +4237,10 @@ void updateClock() {
   }
 }
 
-// Rychlost zmeny stavu nabiti. / Rate of change of the state of charge.
-//
-// Drive se odvozovala z merenych zmen SOC v patnactiminutovem okne, jenze
-// EN: It used to come from measured SOC changes over a 15 minute window, but
-// SOC prichazi z API po celych procentech. Pri nabijeni 1 kW do baterie
-// EN: the SOC arrives from the API in whole percent. Charging 1 kW into a
-// 9,6 kWh je skutecna rychlost 10 %/hod, ale za 15 minut se SOC casto
-// EN: 9.6 kWh the real rate is 10 %/h, yet over 15 minutes the SOC often
-// nezmenil vubec a vysledek byl nula.
-// EN: did not change at all and the result was zero.
-//
-// Vypocet z vykonu a kapacity je okamzity, plynuly a presny.
-// EN: Deriving it from power and capacity is instant, smooth and accurate.
+// CZ: Odhadne změnu SOC v %/h z aktuálního výkonu baterie a kapacity vrácené API.
+//     Kladná rychlost znamená nabíjení; bez platné kapacity se vrací nula.
+// EN: Estimate SOC change in %/h from current battery power and API capacity.
+//     Positive values mean charging; unavailable capacity produces zero.
 void updateSocRate() {
   if (v_batt_capacity <= 0) { socRate = 0; return; }
   socRate = (v_batt_power / 1000.0f) / v_batt_capacity * 100.0f;
@@ -4047,6 +4249,8 @@ void updateSocRate() {
 // ===========================================================================
 // JSON / JSON
 // ===========================================================================
+// CZ: Odmítne nečíselné hodnoty a hodnoty mimo fyzikálně bezpečné meze.
+// EN: Reject non-finite values and values outside safe physical ranges.
 bool metricValid(const char* topic, float value) {
   if (!isfinite(value)) return false;
   if (strstr(topic, "state_of_charge")) return value >= 0 && value <= 100;
@@ -4059,6 +4263,8 @@ bool metricValid(const char* topic, float value) {
   return fabsf(value) <= 1000000;
 }
 
+// CZ: Ověří položky JSON, volitelně je vypíše a přiřadí známé topic proměnným.
+// EN: Validate JSON items, optionally dump them, and map known topics to variables.
 bool handleItems(JsonArray arr) {
   // vypsat vsechny hodnoty jen kdyz si o to rekne tlacitko v nastaveni
   // EN: dump every value only when the settings button asks for it
@@ -4104,11 +4310,11 @@ bool handleItems(JsonArray arr) {
 
 // ===========================================================================
 // TEST SPOJENI / LINK TEST
-// HTTP chyba -1 znamena, ze se nepodarilo navazat TCP spojeni. Tahle funkce
-// EN: HTTP error -1 means the TCP connection failed. This function
-// rozlisi, jestli je problem v siti, v adrese nebo v portu.
-// EN: tells apart a network, address or port problem.
+// CZ: Diagnostika rozliší problém s Wi-Fi, podsítí, bránou nebo dostupností portu.
+// EN: Diagnostics distinguish Wi-Fi, subnet, gateway, and target-port failures.
 // ===========================================================================
+// CZ: Otestuje Wi-Fi, podsíť, bránu a běžné API porty; výsledek vypíše do Serialu.
+// EN: Test Wi-Fi, subnet, gateway, and common API ports; report results to Serial.
 void netDiag() {
   Serial.println();
   Serial.println("==========================================================");
@@ -4138,10 +4344,8 @@ void netDiag() {
   Serial.printf("  podsit      : %s\n",
                 sameNet ? "stejna jako deska" : "JINA - provoz jde pres branu");
 
-  // Test brany. Kdyz neodpovi ani router, je deska nejspis na siti
-  // EN: Gateway test. If even the router stays silent, the board is probably on a network
-  // s izolaci klientu (hostovska WiFi) a na LAN se nedostane vubec.
-  // EN: with client isolation (guest Wi-Fi) and cannot reach the LAN at all.
+  // CZ: Pokud neodpoví ani brána, může být deska na izolované hostovské Wi-Fi.
+  // EN: If the gateway also fails, the board may be on an isolated guest network.
   IPAddress gw = WiFi.gatewayIP();
   bool gwOk = false;
   {
@@ -4194,6 +4398,8 @@ void netDiag() {
 // ===========================================================================
 // HTTP / HTTP
 // ===========================================================================
+// CZ: Stáhne API, ověří HTTP a JSON odpověď a předá data jejich validátoru.
+// EN: Fetch the API, validate HTTP and JSON, then pass metrics to the validator.
 bool fetchData() {
   if (WiFi.status() != WL_CONNECTED) return false;
 
@@ -4238,6 +4444,8 @@ bool fetchData() {
 // ===========================================================================
 // UVODNI OBRAZOVKA A KALIBRACE / SPLASH SCREEN AND CALIBRATION
 // ===========================================================================
+// CZ: Zobrazí krátkou centrovanou zprávu během startu nebo kalibrace.
+// EN: Show a short centered message during startup or calibration.
 void splash(const char* l1, const char* l2, uint16_t col) {
   tft.fillScreen(C_BG);
   tft.setTextDatum(MC_DATUM);
@@ -4250,6 +4458,8 @@ void splash(const char* l1, const char* l2, uint16_t col) {
   tft.setTextDatum(TL_DATUM);
 }
 
+// CZ: Zobrazí úvodní kontaktní obrazovku se stavem připojení.
+// EN: Show the startup contact screen with the current connection status.
 void bootScreen(const char* status, const char* detail, uint16_t col) {
   tft.fillScreen(C_BG);
   drawLogo(54);
@@ -4270,6 +4480,8 @@ void bootScreen(const char* status, const char* detail, uint16_t col) {
   tft.setTextDatum(TL_DATUM);
 }
 
+// CZ: Načte kalibraci dotyku pro otočení displeje, případně spustí novou.
+// EN: Load touch calibration for this display rotation or run a new calibration.
 void loadOrCalibrate() {
   uint16_t cal[5];
   // pro portret je potreba vlastni kalibrace, klic je jiny nez u rotace 1
@@ -4298,6 +4510,8 @@ void loadOrCalibrate() {
 // ===========================================================================
 // OVLADANI DOTYKEM / TOUCH INPUT
 // ===========================================================================
+// CZ: Rozpozná jedno klepnutí a směruje je na grafy, nastavení nebo navigaci.
+// EN: Handle a single tap and route it to charts, settings, or page navigation.
 void handleTouch() {
   static bool was = false;
   uint16_t x, y;
@@ -4313,9 +4527,9 @@ void handleTouch() {
   if (!screenOn) { screenWake(); return; }
   lastTouch = millis();
 
-  // prokliky z uvodni obrazovky na podrobnou stranku
+  // CZ: Dotyky na stránce návratnosti mění investici, energii nebo datum.
+  // EN: Taps on the payback screen adjust the investment, energy, or date.
   if (screen == SCR_ROI && y < NAV_Y) { roiTouch(x, y); drawScreen(); return; }
-  // EN: taps on the overview screen jump to the detail page
   if (screen == SCR_OVERVIEW && y < NAV_Y) {
     int target = -1;
     // Menic / Solarni PV / Inverter
@@ -4402,7 +4616,12 @@ void handleTouch() {
 
   if (screen == SCR_ALERTS && y < NAV_Y) {
     int row = (y - S3_Y0) / S3_STEP;
-    if (row >= 0 && row < S3_ROWS && (y - S3_Y0) % S3_STEP <= S3_H) cfg3Next(row);
+    if (row >= 0 && row < S3_ROWS && (y - S3_Y0) % S3_STEP <= S3_H) {
+      if (row == 6) {
+        if (x >= PV_VOLT_MINUS_X && x < PV_VOLT_MINUS_X + PV_VOLT_BTN_W) cfg3Next(row, -1);
+        else if (x >= PV_VOLT_PLUS_X && x < PV_VOLT_PLUS_X + PV_VOLT_BTN_W) cfg3Next(row, 1);
+      } else cfg3Next(row);
+    }
     return;
   }
 
@@ -4451,6 +4670,8 @@ void handleTouch() {
 }
 
 // ===========================================================================
+// CZ: Inicializuje hardware, NVS, dotyk, Wi-Fi, OTA, čas a první načtení API.
+// EN: Initialize hardware, NVS, touch, Wi-Fi, OTA, time, and the first API fetch.
 void setup() {
   Serial.begin(115200);
   delay(400);
@@ -4494,6 +4715,8 @@ void setup() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
+  // CZ: Čekej nejvýše 10 sekund na Wi-Fi; při neúspěchu pokračuj offline.
+  // EN: Wait up to 10 seconds for Wi-Fi; continue offline if it does not connect.
   int retry = 0;
   while (WiFi.status() != WL_CONNECTED && retry < 40) { delay(250); retry++; }
 
@@ -4527,30 +4750,34 @@ void setup() {
 }
 
 // ===========================================================================
+// CZ: Hlavní smyčka obsluhuje OTA, dotyk, spánek, LED a periodické načítání API.
+// EN: Main loop services OTA, touch, display sleep, the LED, and periodic API polling.
 void loop() {
   tickUptime();
   if (wifiOk) ArduinoOTA.handle();
   handleTouch();
 
-  // zhasnuti displeje po necinnosti / display sleep after inactivity
+  // CZ: Vypni pouze podsvícení po nečinnosti; dotyk i sběr dat pokračují.
+  // EN: Turn off only the backlight after inactivity; touch and data polling continue.
   if (CFG_SLEEP > 0 && screenOn && millis() - lastTouch > CFG_SLEEP) screenSleep();
 
-  // Dioda se musi obnovovat casto, jinak neni blikani videt - jeji stav se
-  // pocita z millis() a pri obnove jednou za 20 s by se prepnula jen jednou
-  // za 20 sekund.
-  // EN: The LED has to refresh often or the blinking stays invisible - its
-  //     state comes from millis(), and refreshing once per fetch would toggle
-  //     it only once every 20 seconds.
+  // CZ: Obnovuj LED často, protože blikání se odvozuje z millis() a nesmí čekat
+  //     na interval API (jinak by se při 20s intervalu sotva jednou přepnulo).
+  // EN: Refresh the LED often because blinking follows millis() and must not
+  //     wait for the API interval, or it would barely toggle once per fetch.
   static uint32_t tLed = 0;
   if (millis() - tLed > 100) {
     tLed = millis();
     updateLoadLed();
   }
 
-  // stahovani dat / data fetching
+  // CZ: V periodě stáhni API, ověř data, aktualizuj alarmy/historii a překresli LCD.
+  // EN: Periodically fetch and validate API data, update alerts/history, and redraw LCD.
   if (millis() - lastFetch > CFG_FETCH) {
     lastFetch = millis();
     float previousGauge[GM_COUNT];
+    // CZ: Zachovej původní hodnoty měřidel před načtením dalšího vzorku.
+    // EN: Snapshot the current gauge values before fetching the next sample.
     for (int i = 0; i < GM_COUNT; ++i) previousGauge[i] = gaugeTarget((uint8_t)i);
     bool hadDataBeforeFetch = haveFetch;
 
@@ -4609,8 +4836,8 @@ void loop() {
     }
   }
 
-  // prubezna aktualizace stari dat v hlavicce
-  // EN: keep the data age in the header current
+  // CZ: Průběžně obnovuj čas a stavové indikátory hlavičky.
+  // EN: Refresh the clock and status indicators in the header.
   static uint32_t tHdr = 0;
   if (millis() - tHdr > 1000) {
     tHdr = millis();

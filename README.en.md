@@ -5,7 +5,7 @@ A graphical wall monitor for photovoltaic systems, running on the
 [Solar Assistant](https://solar-assistant.io/) through its REST API and shows
 it across twenty portrait screens.
 
-Firmware **v2.02** · Author: Cabaj Tomáš · 2026
+Firmware **v2.03** · Author: Cabaj Tomáš · 2026
 
 *Other languages: [Čeština](README.md) · [Deutsch](README.de.md)*
 *Detailed list of screens and features: [FEATURES.md](FEATURES.md)*
@@ -62,7 +62,7 @@ Firmware **v2.02** · Author: Cabaj Tomáš · 2026
   of quietly showing old values
 - **Sleep mode** – backlight turns off after inactivity, touch wakes it
 - **OTA** – firmware updates over Wi-Fi, no cable
-- **Network diagnostics on the device** – port test and full subnet scan
+- **Network diagnostics on the device** – gateway and common API port tests
 - **History survives a reboot** – stored in NVS and picked up again
 - **History chart over 7 days, 31 days or 12 months** – tap the chart to
   switch
@@ -291,23 +291,26 @@ show the position.
 
 | # | Screen | Content |
 |---|---|---|
-| 0 | **Solar Assistant** | 4 icon cards, forecast block with a progress bar, 4 gauges |
-| 1 | **Battery** | Large SOC ring, %/hour, voltage, current, power, capacity |
-| 2 | **Solar** | PV power, day progress, forecast, irradiance, panel V and A |
-| 3 | **Grid & load** | Import, load, inverter load, voltage, frequency, energy |
-| 4 | **Weather** | Cloud cover, temperature, wind, irradiance, production forecast |
-| 5 | **Inverter** | Temperature, power usage, charge voltages, bus voltage |
-| 6 | **Charts** | Today 0–24 h: PV and load, battery power, SOC |
-| 7 | **Charts** | Today 0–24 h: PV and load, battery power, SOC |
-| 8 | **Temperatures** | Today's inverter and outdoor temperature charts |
-| 9 | **History** | Production, consumption and savings for 7 / 31 days or 12 months |
-| 10 | **Savings** | Daily, monthly and yearly saving, self-sufficiency and daily chart |
-| 11 | **Savings forecast** | Seasonal monthly savings plan against actual results |
-| 12 | **Settings** | IP, signal, uptime, memory, version + diagnostic tools |
-| 13 | **Settings 2** | Language and all user-adjustable values |
-| 14 | **Errors & outages** | Error and outage list with a clear button |
-| 15 | **Alerts** | SOC, temperature, outage and RGB LED thresholds |
-| 16 | **About** | Firmware information and contact |
+| 0 | **Overview** | Cards, forecast, yearly savings and four gauges |
+| 1 | **Battery** | SOC, voltage, current, power and capacity |
+| 2 | **Battery life** | Battery groups, cycle counts and replacement estimate |
+| 3 | **Runtime** | Estimated time until full or empty |
+| 4 | **Solar** | PV power, day progress, forecast and panel data |
+| 5 | **Grid & load** | Import, load, voltage, frequency and energy |
+| 6 | **Inverter** | Temperature, power and charging data |
+| 7 | **Weather** | Forecast and day/night duration ratio |
+| 8 | **Charts** | Daily PV, load, battery and SOC charts with cursor |
+| 9 | **Temperatures** | Today and yesterday: inverter and outdoor temperatures |
+| 10 | **History** | Production, consumption and savings for 7 / 31 days or 12 months |
+| 11 | **Savings** | Daily, monthly and yearly savings with a chart scale |
+| 12 | **Savings forecast** | Seasonal monthly plan compared with actual savings |
+| 13 | **Today and yesterday** | Production and consumption comparison |
+| 14 | **Payback** | Investment, energy used and estimated payoff |
+| 15 | **Errors & outages** | Event history and clear-list control |
+| 16 | **Alerts** | SOC, temperature, outage and grid limits; LED choice |
+| 17 | **Settings** | Device status, diagnostics and restart |
+| 18 | **Settings 2** | Language and user-adjustable values |
+| 19 | **About** | Firmware, memory and contact |
 
 On the overview screen you can **tap any block** to jump to its detail page.
 
@@ -368,7 +371,6 @@ stored in NVS, so it survives a reboot and a firmware update.
 |---|---|
 | **DUMP VALUES** | Fetches data and prints every topic to Serial |
 | **LINK TEST** | Checks the gateway and tries common ports on the inverter |
-| **NETWORK SCAN** | Walks `.1`–`.254` looking for anything on port 80 |
 
 ---
 
@@ -473,7 +475,7 @@ own free licence, see `LICENSE_DEJAVU.txt`.
 | Red and blue swapped | Switch `TFT_RGB_ORDER` between `TFT_BGR` and `TFT_RGB` |
 | Touch does not respond | `#define TOUCH_CS 33` missing |
 | Touch is offset | Hold a finger on the display at power-up to recalibrate |
-| `HTTP error: -1` | TCP connection failed – use LINK TEST and NETWORK SCAN |
+| `HTTP error: -1` | TCP connection failed – use LINK TEST |
 | `HTTP error: 401` | Wrong API username or password |
 | `JSON error: NoMemory` | Increase `DynamicJsonDocument(24576)` (ArduinoJson 6 only) |
 | Chart empty, waiting for time | No NTP access – check gateway and DNS |
@@ -485,9 +487,7 @@ own free licence, see `LICENSE_DEJAVU.txt`.
 1. **LINK TEST** – if even the gateway does not answer, the board is on a
    network with client isolation (guest Wi-Fi or a different VLAN) and cannot
    reach the LAN at all
-2. **NETWORK SCAN** – finds what is listening where; Solar Assistant may have
-   been given a different IP by DHCP
-3. Verify from a computer:
+2. Check the inverter's IP in the router and verify from a computer:
    ```bash
    curl -v -u admin:password http://192.168.10.240/api/v1/metrics
    ```

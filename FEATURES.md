@@ -1,7 +1,7 @@
 # Obrazovky a funkce · Screens and features
 
-Přehled všech obrazovek a funkcí firmwaru **SolarAssistant-TMK v2.00**.
-Overview of every screen and feature of the **SolarAssistant-TMK v2.00** firmware.
+Přehled všech obrazovek a funkcí firmwaru **SolarAssistant-TMK v2.03**.
+Overview of every screen and feature of the **SolarAssistant-TMK v2.03** firmware.
 
 *Ostatní dokumenty · Other documents:
 [README (CZ)](README.md) · [README (EN)](README.en.md) · [README (DE)](README.de.md)*
@@ -25,24 +25,26 @@ the position.
 
 | # | Česky | English |
 |---|---|---|
-| 0 | SolarAssistant | SolarAssistant |
+| 0 | SolarAssistant-TMK | SolarAssistant-TMK |
 | 1 | BATERIE | BATTERY |
-| 2 | DOBĚH BATERIE | RUNTIME |
-| 3 | SOLÁR | SOLAR |
-| 4 | SÍŤ A ZÁTĚŽ | GRID & LOAD |
-| 5 | POČASÍ | WEATHER |
+| 2 | ŽIVOTNOST | BATTERY LIFE |
+| 3 | DOBĚH BATERIE | RUNTIME |
+| 4 | SOLÁR | SOLAR |
+| 5 | SÍŤ A ZÁTĚŽ | GRID & LOAD |
 | 6 | MĚNIČ | INVERTER |
-| 7 | GRAFY | CHARTS |
-| 8 | TEPLOTY | TEMPERATURES |
-| 9 | HISTORIE | HISTORY |
-| 10 | ÚSPORY | SAVINGS |
-| 11 | PREDIKCE ÚSPOR | SAVINGS FORECAST |
-| 12 | NASTAVENÍ | SETTINGS |
-| 13 | NASTAVENÍ 2 | SETTINGS 2 |
-| 14 | CHYBY A VÝPADKY | ERRORS & OUTAGES |
-| 15 | UPOZORNĚNÍ | ALERTS |
-| 16 | DNES A VČERA | TODAY & YESTERDAY |
-| 17 | O APLIKACI | ABOUT |
+| 7 | POČASÍ | WEATHER |
+| 8 | GRAFY | CHARTS |
+| 9 | TEPLOTY | TEMPERATURES |
+| 10 | HISTORIE | HISTORY |
+| 11 | ÚSPORY | SAVINGS |
+| 12 | PREDIKCE ÚSPOR | SAVINGS FORECAST |
+| 13 | DNES A VČERA | TODAY & YESTERDAY |
+| 14 | NÁVRATNOST | PAYBACK |
+| 15 | CHYBY A VÝPADKY | ERRORS & OUTAGES |
+| 16 | UPOZORNĚNÍ | ALERTS |
+| 17 | NASTAVENÍ | SETTINGS |
+| 18 | NASTAVENÍ 2 | SETTINGS 2 |
+| 19 | O APLIKACI | ABOUT |
 
 ---
 
@@ -85,7 +87,22 @@ Voltage · Current · Power · Energy left · Charged today · Discharged today 
 
 ---
 
-### 2 · Doběh baterie · Battery runtime
+### 2 · Životnost · Battery life
+
+<img src="images/19-zivotnost-baterii.png" width="320" align="right">
+
+**CZ:** Čtyři skupiny současných baterií s datem pořízení, ručně upravovaným
+počtem cyklů, odhadem zdraví a individuálním hrubým rokem výměny. Odhad vychází
+z nastavené životnosti v cyklech, nejde o měření skutečného stavu baterie.
+
+**EN:** Four groups of the installed batteries, with purchase date, manually
+adjustable cycle count, estimated health and an individual rough replacement
+year. The estimate uses the configured cycle life; it is not a measurement of
+actual battery condition.
+
+---
+
+### 3 · Doběh baterie · Battery runtime
 
 <img src="images/02-dobeh.png" width="320" align="right">
 
@@ -99,7 +116,7 @@ regardless of what the inverter is doing.
 
 ---
 
-### 3 · Solár · Solar
+### 4 · Solár · Solar
 
 <img src="images/03-solar.png" width="320" align="right">
 
@@ -112,7 +129,7 @@ Produced today · Remaining today · Forecast · Irradiance · Panel voltage · 
 
 ---
 
-### 4 · Síť a zátěž · Grid and load
+### 5 · Síť a zátěž · Grid and load
 
 <img src="images/04-sit-zatez.png" width="320" align="right">
 
@@ -128,7 +145,7 @@ Grid voltage · Frequency · Inverter output · Output Hz · Imported · Exporte
 
 ---
 
-### 5 · Počasí · Weather
+### 7 · Počasí · Weather
 
 <img src="images/05-pocasi.png" width="320" align="right">
 
@@ -160,7 +177,19 @@ Max power · Apparent power · Bus voltage · Max charge current · Absorption �
 
 ---
 
-### 7 · Grafy · Charts
+### 9 · Teploty · Temperatures
+
+<img src="images/08-teploty.png" width="320" align="right">
+
+**CZ:** Denní graf teploty měniče a venkovní teploty. Šedá linka ukazuje
+včerejší průběh; kompaktní vzorky po 1 °C se ukládají do NVS.
+
+**EN:** Daily inverter and outdoor temperature charts. A grey line shows
+yesterday; compact 1 °C samples are persisted in NVS.
+
+---
+
+### 8 · Grafy · Charts
 
 <img src="images/07-grafy.png" width="320" align="right">
 
@@ -188,9 +217,9 @@ left and a time axis at the bottom.
 
 ---
 
-### 8 · Historie · History
+### 10 · Historie · History
 
-<img src="images/08-historie.png" width="320" align="right">
+<img src="images/09-historie.png" width="320" align="right">
 
 **CZ:** Sloupcový graf — výroba oranžově, spotřeba modře. Klepnutím na graf
 se přepíná zobrazené období: **7 dní → 31 dní → 12 měsíců**. Souhrny pod
@@ -211,9 +240,9 @@ Production · Consumption · Charged · Discharged · Saved
 
 ---
 
-### 9 · Úspory · Savings
+### 11 · Úspory · Savings
 
-<img src="images/09-uspory.png" width="320" align="right">
+<img src="images/10-uspory.png" width="320" align="right">
 
 **CZ:** Tabulka za dnešek, aktuální měsíc a rok — výroba a spotřeba v kWh
 a kolik to ušetřilo. Pod tabulkou **soběstačnost** a **porovnání
@@ -239,9 +268,71 @@ bottom a savings chart for the last 14 days with day labels.
 
 ---
 
-### 10 · Nastavení · Settings
+### 12 · Predikce úspor · Savings forecast
 
-<img src="images/10-nastaveni.png" width="320" align="right">
+<img src="images/11-predikce.png" width="320" align="right">
+
+**CZ:** Porovnává plánovanou a skutečnou úsporu po měsících. Plán vychází
+z pevné sezónní tabulky; klepnutí do grafu zobrazí hodnoty vybraného měsíce.
+
+**EN:** Compares planned and actual savings by month. The plan uses a fixed
+seasonal table; tapping the chart shows the selected month's values.
+
+---
+
+### 13 · Dnes a včera · Today and yesterday
+
+<img src="images/16-dnes-vcera.png" width="320" align="right">
+
+**CZ:** Denní výrobu FVE a spotřebu domu porovnává ve společném sloupcovém
+grafu a souhrnných hodnotách.
+
+**EN:** Compares daily PV production and house consumption in a grouped bar
+chart and summary values.
+
+---
+
+### 14 · Návratnost · Payback
+
+<img src="images/18-navratnost.png" width="320" align="right">
+
+**CZ:** Ručně zadaná investice, využitá energie a datum jejího sběru. Vrácená
+částka se počítá z ceny za kWh v Nastavení; údaje se ukládají do NVS.
+
+**EN:** Manually entered investment, used energy and its start date. The
+returned amount uses the configured price per kWh; values are stored in NVS.
+
+---
+
+### 15 · Chyby a výpadky · Errors and outages
+
+<img src="images/14-chyby.png" width="320" align="right">
+
+**CZ:** Kruhová historie zaznamenaných chyb a výpadků s časem, délkou
+a počtem selhání. Seznam lze ručně vymazat.
+
+**EN:** A circular history of errors and outages, with time, duration and
+failure count. The list can be cleared manually.
+
+---
+
+### 16 · Upozornění · Alerts
+
+<img src="images/15-upozorneni.png" width="320" align="right">
+
+**CZ:** Nastavitelné limity SOC, teploty měniče, neaktuálních dat a odběru
+ze sítě. Práh napětí FV ovládá pouze informační ikonu na hlavní stránce,
+nikoli alarm nebo chybu.
+
+**EN:** Configurable SOC, inverter-temperature, stale-data and grid-import
+limits. The PV-voltage threshold controls only the informational icon on the
+overview, not an alarm or error.
+
+---
+
+### 17 · Nastavení · Settings
+
+<img src="images/12-nastaveni.png" width="320" align="right">
 
 **CZ:** Stav zařízení a diagnostické nástroje.
 
@@ -261,13 +352,12 @@ bottom a savings chart for the last 14 days with day labels.
 |---|---|
 | **VÝPIS HODNOT** · DUMP VALUES | Stáhne data a vypíše všechny topicy do Serialu · Fetches data and prints every topic to Serial |
 | **TEST SPOJENÍ** · LINK TEST | Ověří bránu a zkusí obvyklé porty na adrese měniče · Checks the gateway and tries common ports on the inverter |
-| **SKEN SÍTĚ** · NETWORK SCAN | Projde `.1`–`.254` a najde, kde něco poslouchá na portu 80 · Walks `.1`–`.254` looking for anything on port 80 |
 
 ---
 
-### 11 · Nastavení 2 · Settings 2
+### 18 · Nastavení 2 · Settings 2
 
-<img src="images/11-nastaveni2.png" width="320" align="right">
+<img src="images/13-nastaveni2.png" width="320" align="right">
 
 **CZ:** Uživatelské volby. Klepnutím na řádek se hodnota posune na další,
 všechno se ukládá do NVS a přežije restart i odpojení napájení.
@@ -277,9 +367,9 @@ in NVS and survives a reboot and a power cut.
 
 ---
 
-### 12 · O aplikaci · About
+### 19 · O aplikaci · About
 
-<img src="images/12-o-aplikaci.png" width="320" align="right">
+<img src="images/17-o-aplikaci.png" width="320" align="right">
 
 **CZ:** Logo, autor, rok, informace o desce a kontakt.
 
@@ -342,7 +432,7 @@ Board · Firmware · Flash · Free memory · GitHub · E-mail
 | **OTA** | Aktualizace firmwaru přes Wi-Fi, s ukazatelem průběhu na displeji · Firmware update over Wi-Fi with on-screen progress |
 | **NTP** | Čas z internetu včetně letního času · Internet time including daylight saving |
 | **Automatický restart** · **Auto reboot** | Po 30 neúspěšných načteních, historie se předtím uloží · After 30 failed fetches, the history is saved first |
-| **Diagnostika sítě** · **Network diagnostics** | Test brány, sken portů i celé podsítě přímo v zařízení · Gateway test, port scan and full subnet scan on the device |
+| **Diagnostika sítě** · **Network diagnostics** | Test brány a obvyklých API portů · Gateway and common API port tests on the device |
 | **Východ a západ slunce** · **Sunrise and sunset** | Počítá se z data a polohy, bez sítě · Calculated from date and position, no network |
 
 ---

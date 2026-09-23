@@ -4,7 +4,7 @@ Grafický nástěnný monitor fotovoltaiky pro **ESP32-3248S035R** (3,5" dotykov
 displej). Čte data ze [Solar Assistant](https://solar-assistant.io/) přes jeho
 REST API a zobrazuje je na dvaceti obrazovkách na výšku.
 
-Firmware **v2.02** · Autor: Cabaj Tomáš · 2026
+Firmware **v2.03** · Autor: Cabaj Tomáš · 2026
 
 *Další jazyky: [English](README.en.md) · [Deutsch](README.de.md)*
 *Podrobný seznam obrazovek a funkcí: [FEATURES.md](FEATURES.md)*
@@ -99,7 +99,7 @@ Hodnoty přežijí restart; při neúspěšném uložení se zobrazí chyba a zm
   v pořádku
 - **Úsporný režim** – po nečinnosti zhasne podsvícení, probudí se dotykem
 - **OTA** – aktualizace firmwaru přes Wi-Fi bez kabelu
-- **Síťová diagnostika** přímo v zařízení – test portů i sken celé podsítě
+- **Síťová diagnostika** přímo v zařízení – test brány a obvyklých API portů
 - **Historie přežije restart** – ukládá se do NVS, po výpadku se navazuje
 - **Graf historie za 7 dní, 31 dní nebo 12 měsíců** – přepíná se klepnutím
   na graf
@@ -326,23 +326,26 @@ Přepínají se tlačítky dole: **◀ | domů | ▶**. Tečky nad nimi ukazují
 
 | # | Obrazovka | Obsah |
 |---|---|---|
-| 0 | **Solar Assistant** | 4 karty s ikonami, blok Predikce s posuvníkem, 4 ukazatele |
-| 1 | **Baterie** | Velký prstenec SOC, %/hod, napětí, proud, výkon, kapacita |
-| 2 | **Solár** | Výkon FVE, průběh dne, predikce, osvit, napětí a proud panelů |
-| 3 | **Síť a zátěž** | Odběr, zátěž, zatížení měniče, napětí, frekvence, energie |
-| 4 | **Počasí** | Oblačnost, teplota, vítr, osvit, predikce výroby |
-| 5 | **Měnič** | Teplota, využití výkonu, nabíjecí napětí, bus napětí |
-| 6 | **Grafy** | Dnešní den 0–24 h: FVE a zátěž, výkon baterie, SOC |
-| 7 | **Grafy** | Dnešní den 0–24 h: FVE a zátěž, výkon baterie, SOC |
-| 8 | **Teploty** | Dnešní graf teploty měniče a venkovní teploty |
-| 9 | **Historie** | Výroba, spotřeba a úspory za 7 / 31 dní nebo 12 měsíců |
-| 10 | **Úspory** | Dnešní, měsíční a roční úspora, soběstačnost a denní graf |
-| 11 | **Predikce úspor** | Sezónní měsíční plán úspor proti skutečnosti |
-| 12 | **Nastavení** | IP, signál, čas běhu, paměť, verze + diagnostické nástroje |
-| 13 | **Nastavení 2** | Jazyk a všechna uživatelská nastavení |
-| 14 | **Chyby a výpadky** | Seznam chyb, výpadků a tlačítko pro smazání |
-| 15 | **Upozornění** | Limity SOC, teploty, výpadku a RGB LED |
-| 16 | **O aplikaci** | Informace o firmwaru a kontakt |
+| 0 | **Přehled** | Karty, predikce, roční úspora a čtyři ukazatele |
+| 1 | **Baterie** | SOC, napětí, proud, výkon a kapacita |
+| 2 | **Životnost** | Skupiny baterií, cykly a odhad výměny |
+| 3 | **Doběh baterie** | Odhad času do nabití nebo vybití |
+| 4 | **Solár** | Výkon FVE, průběh dne, predikce a údaje panelů |
+| 5 | **Síť a zátěž** | Odběr, zátěž, napětí, frekvence a energie |
+| 6 | **Měnič** | Teplota, výkon a nabíjecí parametry |
+| 7 | **Počasí** | Předpověď a poměr délky dne a noci |
+| 8 | **Grafy** | Denní průběhy FVE, zátěže, baterie a SOC s kurzorem |
+| 9 | **Teploty** | Dnešní a včerejší teplota měniče i venku |
+| 10 | **Historie** | Výroba, spotřeba a úspory za 7 / 31 dní nebo 12 měsíců |
+| 11 | **Úspory** | Denní, měsíční a roční úspora se stupnicí grafu |
+| 12 | **Predikce úspor** | Sezónní měsíční plán proti skutečnosti |
+| 13 | **Dnes a včera** | Porovnání výroby, spotřeby a denních souhrnů |
+| 14 | **Návratnost** | Investice, využitá energie a odhad splacení |
+| 15 | **Chyby a výpadky** | Historie událostí a tlačítko pro smazání |
+| 16 | **Upozornění** | Limity SOC, teploty, výpadku a sítě; LED |
+| 17 | **Nastavení** | Stav zařízení, diagnostika a restart |
+| 18 | **Nastavení 2** | Jazyk a uživatelské volby |
+| 19 | **O aplikaci** | Firmware, paměť a kontakt |
 
 Na úvodní obrazovce lze **kliknout na kterýkoli blok** a proklikne na jeho
 podrobnou stránku.
@@ -404,7 +407,6 @@ Vše se ukládá do NVS, takže přežije restart i aktualizaci firmwaru.
 |---|---|
 | **VÝPIS HODNOT** | Stáhne data a vypíše všechny proměnné do Serialu |
 | **TEST SPOJENÍ** | Ověří bránu a zkusí obvyklé porty na adrese měniče |
-| **SKEN SÍTĚ** | Projde `.1`–`.254` a najde, kde něco poslouchá na portu 80 |
 
 ---
 
@@ -519,7 +521,7 @@ volnou licenci, viz `LICENSE_DEJAVU.txt`.
 | Červená a modrá prohozené | `TFT_RGB_ORDER` přepnout `TFT_BGR` ↔ `TFT_RGB` |
 | Dotyk nereaguje | Chybí `#define TOUCH_CS 33` |
 | Dotyk je posunutý | Držet prst na displeji při zapnutí → spustí se kalibrace |
-| `HTTP chyba: -1` | Nelze navázat TCP spojení – použít TEST SPOJENÍ a SKEN SÍTĚ |
+| `HTTP chyba: -1` | Nelze navázat TCP spojení – použít TEST SPOJENÍ |
 | `HTTP chyba: 401` | Špatné jméno nebo heslo k API |
 | `JSON chyba: NoMemory` | Zvětšit `DynamicJsonDocument(24576)` (jen ArduinoJson 6) |
 | Graf je prázdný, hlásí čekání na čas | Deska nemá přístup na NTP – ověřit bránu a DNS |
@@ -530,9 +532,7 @@ volnou licenci, viz `LICENSE_DEJAVU.txt`.
 
 1. **TEST SPOJENÍ** – pokud neodpovídá ani brána, je deska na síti s izolací
    klientů (hostovská Wi-Fi nebo jiná VLAN) a na LAN se nedostane vůbec
-2. **SKEN SÍTĚ** – najde, na jaké adrese něco poslouchá; Solar Assistant mohl
-   dostat z DHCP jinou IP
-3. Ověřte z počítače:
+2. Ověřte IP měniče v routeru a z počítače:
    ```bash
    curl -v -u admin:heslo http://192.168.10.240/api/v1/metrics
    ```
